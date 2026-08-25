@@ -46,10 +46,10 @@ Prebuilt container images are published by the GitHub Actions workflow [`.github
 
 | Image | Dockerfile | Default tag used by Bicep |
 |---|---|---|
-| `cohereloan-api` | `backend/src/Api.Host/Dockerfile` | `ghcr.io/Foundry-Industry-Sandbox/cohereloan-api:demo` |
-| `cohereloan-mcp` | `backend/src/LoanWorkflow.Mcp/Dockerfile` | `ghcr.io/Foundry-Industry-Sandbox/cohereloan-mcp:demo` |
-| `cohereloan-provisioning` | `agent-provisioning/Dockerfile` | `ghcr.io/Foundry-Industry-Sandbox/cohereloan-provisioning:demo` |
-| `cohereloan-web` | `frontend/src/WebApp/Dockerfile` | `ghcr.io/Foundry-Industry-Sandbox/cohereloan-web:demo` |
+| `cohereloan-api` | `backend/src/Api.Host/Dockerfile` | `ghcr.io/foundry-industry-sandbox/cohereloan-api:demo` |
+| `cohereloan-mcp` | `backend/src/LoanWorkflow.Mcp/Dockerfile` | `ghcr.io/foundry-industry-sandbox/cohereloan-mcp:demo` |
+| `cohereloan-provisioning` | `agent-provisioning/Dockerfile` | `ghcr.io/foundry-industry-sandbox/cohereloan-provisioning:demo` |
+| `cohereloan-web` | `frontend/src/WebApp/Dockerfile` | `ghcr.io/foundry-industry-sandbox/cohereloan-web:demo` |
 
 Each image is also tagged with the commit SHA. Override image URIs with the `*ContainerImage` template parameters if you publish to another registry.
 

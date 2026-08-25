@@ -42,16 +42,16 @@
       "value": "1"
     },
     "apiContainerImage": {
-      "value": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-api:demo"
+      "value": "ghcr.io/foundry-industry-sandbox/cohereloan-api:demo"
     },
     "mcpContainerImage": {
-      "value": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-mcp:demo"
+      "value": "ghcr.io/foundry-industry-sandbox/cohereloan-mcp:demo"
     },
     "frontendContainerImage": {
-      "value": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-web:demo"
+      "value": "ghcr.io/foundry-industry-sandbox/cohereloan-web:demo"
     },
     "provisioningContainerImage": {
-      "value": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-provisioning:demo"
+      "value": "ghcr.io/foundry-industry-sandbox/cohereloan-provisioning:demo"
     },
     "enableFabric": {
       "value": false

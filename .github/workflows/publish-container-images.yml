@@ -20,6 +20,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
+  REPOSITORY_OWNER: foundry_industry_sandbox
 
 jobs:
   publish:
@@ -55,5 +56,5 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}:demo
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/${{ matrix.image }}:demo
+            ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/${{ matrix.image }}:${{ github.sha }}

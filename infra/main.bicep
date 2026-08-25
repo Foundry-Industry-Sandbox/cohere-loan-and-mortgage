@@ -50,16 +50,16 @@ param rerankDeploymentCapacity int = 5
 param searchSku string = 'basic'
 
 @description('Full container image URI for the API host.')
-param apiContainerImage string = 'ghcr.io/Foundry-Industry-Sandbox/cohereloan-api:demo'
+param apiContainerImage string = 'ghcr.io/foundry-industry-sandbox/cohereloan-api:demo'
 
 @description('Full container image URI for the MCP host.')
-param mcpContainerImage string = 'ghcr.io/Foundry-Industry-Sandbox/cohereloan-mcp:demo'
+param mcpContainerImage string = 'ghcr.io/foundry-industry-sandbox/cohereloan-mcp:demo'
 
 @description('Full container image URI for the frontend host.')
-param frontendContainerImage string = 'ghcr.io/Foundry-Industry-Sandbox/cohereloan-web:demo'
+param frontendContainerImage string = 'ghcr.io/foundry-industry-sandbox/cohereloan-web:demo'
 
 @description('Full container image URI for the agent provisioning job.')
-param provisioningContainerImage string = 'ghcr.io/Foundry-Industry-Sandbox/cohereloan-provisioning:demo'
+param provisioningContainerImage string = 'ghcr.io/foundry-industry-sandbox/cohereloan-provisioning:demo'
 
 @description('When true, provisions Fabric lakehouse, seeds lakehouse data, and configures MCP to read case context from Fabric. Requires fabricWorkspaceName. Optionally override fabricIdentityName (defaults to fabric-identity).')
 param enableFabric bool = false
@@ -74,7 +74,7 @@ param fabricLakehouseName string = 'LoanProcessingLakehouse'
 param fabricIdentityName string = 'fabric-identity'
 
 @description('Repository archive URL the seed script downloads to fetch infra/scripts/ and dataset-seed/.')
-param fabricRepositoryArchiveUrl string = 'https://github.com/Foundry-Industry-Sandbox/cohere-loan-and-mortgage/archive/refs/heads/main.zip'
+param fabricRepositoryArchiveUrl string = 'https://github.com/foundry-industry-sandbox/cohere-loan-and-mortgage/archive/refs/heads/main.zip'
 
 var resolvedFoundryProjectName = '${baseName}-project'
 

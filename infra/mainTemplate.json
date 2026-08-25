@@ -119,28 +119,28 @@
     },
     "apiContainerImage": {
       "type": "string",
-      "defaultValue": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-api:demo",
+      "defaultValue": "ghcr.io/foundry-industry-sandbox/cohereloan-api:demo",
       "metadata": {
         "description": "Full container image URI for the API host."
       }
     },
     "mcpContainerImage": {
       "type": "string",
-      "defaultValue": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-mcp:demo",
+      "defaultValue": "ghcr.io/foundry-industry-sandbox/cohereloan-mcp:demo",
       "metadata": {
         "description": "Full container image URI for the MCP host."
       }
     },
     "frontendContainerImage": {
       "type": "string",
-      "defaultValue": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-web:demo",
+      "defaultValue": "ghcr.io/foundry-industry-sandbox/cohereloan-web:demo",
       "metadata": {
         "description": "Full container image URI for the frontend host."
       }
     },
     "provisioningContainerImage": {
       "type": "string",
-      "defaultValue": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-provisioning:demo",
+      "defaultValue": "ghcr.io/foundry-industry-sandbox/cohereloan-provisioning:demo",
       "metadata": {
         "description": "Full container image URI for the agent provisioning job."
       }
@@ -175,7 +175,7 @@
     },
     "fabricRepositoryArchiveUrl": {
       "type": "string",
-      "defaultValue": "https://github.com/Foundry-Industry-Sandbox/cohere-loan-and-mortgage/archive/refs/heads/main.zip",
+      "defaultValue": "https://github.com/foundry-industry-sandbox/cohere-loan-and-mortgage/archive/refs/heads/main.zip",
       "metadata": {
         "description": "Repository archive URL the seed script downloads to fetch infra/scripts/ and dataset-seed/."
       }

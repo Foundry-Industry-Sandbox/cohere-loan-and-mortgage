@@ -41,9 +41,9 @@ Key parameters in `main.bicep`:
 | `baseName` | `cohereloan` | Resource name prefix |
 | `modelDeploymentName` | `cohere-command-a-plus` | Agent model deployment |
 | `enableFabric` | `false` | Enable Fabric lakehouse integration |
-| `apiContainerImage` | `ghcr.io/Foundry-Industry-Sandbox/cohereloan-api:demo` | API container image |
-| `mcpContainerImage` | `ghcr.io/Foundry-Industry-Sandbox/cohereloan-mcp:demo` | MCP container image |
-| `frontendContainerImage` | `ghcr.io/Foundry-Industry-Sandbox/cohereloan-web:demo` | Frontend container image |
+| `apiContainerImage` | `ghcr.io/foundry-industry-sandbox/cohereloan-api:demo` | API container image |
+| `mcpContainerImage` | `ghcr.io/foundry-industry-sandbox/cohereloan-mcp:demo` | MCP container image |
+| `frontendContainerImage` | `ghcr.io/foundry-industry-sandbox/cohereloan-web:demo` | Frontend container image |
 
 See [`main.parameters.json`](main.parameters.json) and the Deploy to Azure UI in [`createUiDefinition.json`](createUiDefinition.json). Full parameter reference: [`docs/deployment-parameters.md`](../docs/deployment-parameters.md).
 

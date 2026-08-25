@@ -22,15 +22,15 @@ Parameters for the custom Deploy to Azure template ([`infra/mainTemplate.json`](
 | `rerankModelVersion` | `1` | Cohere rerank model version. |
 | `rerankDeploymentCapacity` | `5` | Capacity units for the rerank deployment. Increase for faster retrieval reranking and fewer throttling failures. |
 | `searchSku` | `basic` | Azure AI Search SKU for demo retrieval indexes. |
-| `apiContainerImage` | `ghcr.io/Foundry-Industry-Sandbox/cohereloan-api:demo` | Full container image URI for the API host Container App. |
-| `mcpContainerImage` | `ghcr.io/Foundry-Industry-Sandbox/cohereloan-mcp:demo` | Full container image URI for the MCP host Container App. |
-| `frontendContainerImage` | `ghcr.io/Foundry-Industry-Sandbox/cohereloan-web:demo` | Full container image URI for the frontend Container App. |
-| `provisioningContainerImage` | `ghcr.io/Foundry-Industry-Sandbox/cohereloan-provisioning:demo` | Full container image URI for the agent provisioning Container Apps Job. |
+| `apiContainerImage` | `ghcr.io/foundry-industry-sandbox/cohereloan-api:demo` | Full container image URI for the API host Container App. |
+| `mcpContainerImage` | `ghcr.io/foundry-industry-sandbox/cohereloan-mcp:demo` | Full container image URI for the MCP host Container App. |
+| `frontendContainerImage` | `ghcr.io/foundry-industry-sandbox/cohereloan-web:demo` | Full container image URI for the frontend Container App. |
+| `provisioningContainerImage` | `ghcr.io/foundry-industry-sandbox/cohereloan-provisioning:demo` | Full container image URI for the agent provisioning Container Apps Job. |
 | `enableFabric` | `false` | When `true`, provisions a Fabric lakehouse, seeds lakehouse data, and configures MCP to read case context from Fabric. Requires `fabricWorkspaceName`. |
 | `fabricWorkspaceName` | `''` | Fabric workspace name. Required when `enableFabric` is `true`. Must be capacity-backed and accessible to the operator. |
 | `fabricLakehouseName` | `LoanProcessingLakehouse` | Fabric lakehouse name. Created at deploy time if missing when Fabric is enabled. |
 | `fabricIdentityName` | `fabric-identity` | Optional. Name of an existing user-assigned managed identity in the **same resource group** as the deployment. Defaults to `fabric-identity`. Create with `infra/scripts/setup-fabric-provision-identity.ps1`. Used as the MCP identity and Fabric seed script identity. |
-| `fabricRepositoryArchiveUrl` | `https://github.com/Foundry-Industry-Sandbox/cohere-loan-and-mortgage/archive/refs/heads/main.zip` | Repository archive URL the Fabric seed script downloads to fetch `infra/scripts/` and `dataset-seed/`. |
+| `fabricRepositoryArchiveUrl` | `https://github.com/foundry-industry-sandbox/cohere-loan-and-mortgage/archive/refs/heads/main.zip` | Repository archive URL the Fabric seed script downloads to fetch `infra/scripts/` and `dataset-seed/`. |
 
 ## Deployment outputs
 
