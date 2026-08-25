@@ -1,0 +1,60 @@
+name: Publish Container Images
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/src/Api.Host/**'
+      - 'backend/src/LoanWorkflow.Mcp/**'
+      - 'agent-provisioning/**'
+      - 'frontend/src/WebApp/**'
+      - 'dataset-seed/**'
+      - 'NuGet.config'
+      - '.github/workflows/publish-container-images.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: foundryindustrysandbox
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: cohereloan-api
+            dockerfile: backend/src/Api.Host/Dockerfile
+          - image: cohereloan-mcp
+            dockerfile: backend/src/LoanWorkflow.Mcp/Dockerfile
+          - image: cohereloan-provisioning
+            dockerfile: agent-provisioning/Dockerfile
+          - image: cohereloan-web
+            dockerfile: frontend/src/WebApp/Dockerfile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}:demo
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}:${{ github.sha }}

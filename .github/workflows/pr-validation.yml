@@ -1,0 +1,86 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'agent-provisioning/**'
+      - 'frontend/**'
+      - 'global.json'
+      - 'NuGet.config'
+      - 'CohereLoanAndMortgage.sln'
+      - 'infra/**'
+      - '.github/workflows/pr-validation.yml'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
+    outputs:
+      dotnet: ${{ steps.filter.outputs.dotnet }}
+      bicep: ${{ steps.filter.outputs.bicep }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            dotnet:
+              - 'backend/**'
+              - 'agent-provisioning/**'
+              - 'frontend/**'
+              - 'global.json'
+              - 'NuGet.config'
+              - 'CohereLoanAndMortgage.sln'
+              - '.github/workflows/pr-validation.yml'
+            bicep:
+              - 'infra/**'
+              - '.github/workflows/pr-validation.yml'
+
+  dotnet-validation:
+    needs: changes
+    if: needs.changes.outputs.dotnet == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore solution
+        run: dotnet restore CohereLoanAndMortgage.sln --configfile NuGet.config
+
+      - name: Build solution
+        run: dotnet build CohereLoanAndMortgage.sln -c Release -m:1 --no-restore
+
+      - name: Restore WebApp
+        run: dotnet restore frontend/src/WebApp/Cohere.LoanProcessing.WebApp.csproj --configfile NuGet.config
+
+      - name: Build WebApp
+        run: dotnet build frontend/src/WebApp/Cohere.LoanProcessing.WebApp.csproj -c Release --no-restore
+
+  bicep-validation:
+    needs: changes
+    if: needs.changes.outputs.bicep == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Bicep CLI
+        run: az bicep install
+
+      - name: Build Bicep
+        run: az bicep build --file infra/main.bicep

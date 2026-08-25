@@ -1,0 +1,12 @@
+{
+  "name": "underwriting-agent",
+  "description": "Evaluates loan risk and returns an underwriting recommendation.",
+  "instructionsFile": "instructions.md",
+  "outputSchemaFile": "../../shared/underwriting-structured-output.schema.json",
+  "allowedDecisions": [
+    "Approve",
+    "Reject"
+  ],
+  "governancePolicyFile": "governance.yaml",
+  "governanceRogueFile": "rogue.yaml"
+}

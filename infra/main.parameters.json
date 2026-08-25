@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "baseName": {
+      "value": "cohereloan"
+    },
+    "modelDeploymentName": {
+      "value": "cohere-command-a-plus"
+    },
+    "modelDeploymentSkuName": {
+      "value": "GlobalStandard"
+    },
+    "modelDeploymentCapacity": {
+      "value": 100
+    },
+    "cohereModelName": {
+      "value": "Cohere-command-a-plus-05-2026"
+    },
+    "cohereModelVersion": {
+      "value": "1"
+    },
+    "embedDeploymentName": {
+      "value": "cohere-embed-v4"
+    },
+    "embedModelName": {
+      "value": "embed-v-4-0"
+    },
+    "embedModelVersion": {
+      "value": "1"
+    },
+    "embedDeploymentCapacity": {
+      "value": 1000
+    },
+    "rerankDeploymentName": {
+      "value": "cohere-rerank-v4-pro"
+    },
+    "rerankModelName": {
+      "value": "Cohere-rerank-v4.0-pro"
+    },
+    "rerankModelVersion": {
+      "value": "1"
+    },
+    "apiContainerImage": {
+      "value": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-api:demo"
+    },
+    "mcpContainerImage": {
+      "value": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-mcp:demo"
+    },
+    "frontendContainerImage": {
+      "value": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-web:demo"
+    },
+    "provisioningContainerImage": {
+      "value": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-provisioning:demo"
+    },
+    "enableFabric": {
+      "value": false
+    },
+    "fabricWorkspaceName": {
+      "value": ""
+    },
+    "fabricLakehouseName": {
+      "value": "LoanProcessingLakehouse"
+    },
+    "fabricIdentityName": {
+      "value": "fabric-identity"
+    }
+  }
+}

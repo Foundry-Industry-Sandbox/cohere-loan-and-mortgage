@@ -1,0 +1,2415 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "baseName": {
+      "type": "string",
+      "defaultValue": "cohereloan",
+      "metadata": {
+        "description": "Base name used for deployed resources."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all deployed resources."
+      }
+    },
+    "modelDeploymentName": {
+      "type": "string",
+      "defaultValue": "cohere-command-a-plus",
+      "metadata": {
+        "description": "Foundry model deployment name used by all agents."
+      }
+    },
+    "modelDeploymentSkuName": {
+      "type": "string",
+      "defaultValue": "GlobalStandard",
+      "metadata": {
+        "description": "SKU used by the Foundry model deployment for the agents. Use GlobalStandard for serverless deployments; use a provisioned SKU only if it is available for the model and region."
+      }
+    },
+    "modelDeploymentCapacity": {
+      "type": "int",
+      "defaultValue": 100,
+      "minValue": 1,
+      "metadata": {
+        "description": "Capacity units for the Foundry model deployment used by the agents. Increase this when agents fail with no_capacity during peak load."
+      }
+    },
+    "cohereModelName": {
+      "type": "string",
+      "defaultValue": "Cohere-command-a-plus-05-2026",
+      "metadata": {
+        "description": "Cohere Command A model name in Foundry catalog."
+      }
+    },
+    "cohereModelVersion": {
+      "type": "string",
+      "defaultValue": "1",
+      "metadata": {
+        "description": "Cohere Command A model version."
+      }
+    },
+    "embedDeploymentName": {
+      "type": "string",
+      "defaultValue": "cohere-embed-v4",
+      "metadata": {
+        "description": "Foundry deployment name for Cohere embed-v-4-0."
+      }
+    },
+    "embedModelName": {
+      "type": "string",
+      "defaultValue": "embed-v-4-0",
+      "metadata": {
+        "description": "Cohere embed model name in Foundry catalog."
+      }
+    },
+    "embedModelVersion": {
+      "type": "string",
+      "defaultValue": "1",
+      "metadata": {
+        "description": "Cohere embed model version."
+      }
+    },
+    "embedDeploymentCapacity": {
+      "type": "int",
+      "defaultValue": 1000,
+      "minValue": 1,
+      "metadata": {
+        "description": "Capacity units for the Cohere embed deployment. Increase this for faster case evidence indexing and fewer throttling failures."
+      }
+    },
+    "rerankDeploymentName": {
+      "type": "string",
+      "defaultValue": "cohere-rerank-v4-pro",
+      "metadata": {
+        "description": "Foundry deployment name for Cohere-rerank-v4.0-pro."
+      }
+    },
+    "rerankModelName": {
+      "type": "string",
+      "defaultValue": "Cohere-rerank-v4.0-pro",
+      "metadata": {
+        "description": "Cohere rerank model name in Foundry catalog."
+      }
+    },
+    "rerankModelVersion": {
+      "type": "string",
+      "defaultValue": "1",
+      "metadata": {
+        "description": "Cohere rerank model version."
+      }
+    },
+    "rerankDeploymentCapacity": {
+      "type": "int",
+      "defaultValue": 5,
+      "minValue": 1,
+      "metadata": {
+        "description": "Capacity units for the Cohere rerank deployment. Increase this for faster retrieval reranking and fewer throttling failures."
+      }
+    },
+    "searchSku": {
+      "type": "string",
+      "defaultValue": "basic",
+      "metadata": {
+        "description": "Azure AI Search SKU for demo retrieval indexes."
+      }
+    },
+    "apiContainerImage": {
+      "type": "string",
+      "defaultValue": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-api:demo",
+      "metadata": {
+        "description": "Full container image URI for the API host."
+      }
+    },
+    "mcpContainerImage": {
+      "type": "string",
+      "defaultValue": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-mcp:demo",
+      "metadata": {
+        "description": "Full container image URI for the MCP host."
+      }
+    },
+    "frontendContainerImage": {
+      "type": "string",
+      "defaultValue": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-web:demo",
+      "metadata": {
+        "description": "Full container image URI for the frontend host."
+      }
+    },
+    "provisioningContainerImage": {
+      "type": "string",
+      "defaultValue": "ghcr.io/Foundry-Industry-Sandbox/cohereloan-provisioning:demo",
+      "metadata": {
+        "description": "Full container image URI for the agent provisioning job."
+      }
+    },
+    "enableFabric": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "When true, provisions Fabric lakehouse, seeds lakehouse data, and configures MCP to read case context from Fabric. Requires fabricWorkspaceName. Optionally override fabricIdentityName (defaults to fabric-identity)."
+      }
+    },
+    "fabricWorkspaceName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Fabric workspace name. Required when enableFabric is true. Must be capacity-backed and accessible to the operator."
+      }
+    },
+    "fabricLakehouseName": {
+      "type": "string",
+      "defaultValue": "LoanProcessingLakehouse",
+      "metadata": {
+        "description": "Fabric lakehouse name. Used only when enableFabric is true. Created at deploy time if missing."
+      }
+    },
+    "fabricIdentityName": {
+      "type": "string",
+      "defaultValue": "fabric-identity",
+      "metadata": {
+        "description": "Name of an existing user-assigned managed identity in this resource group. Optional; defaults to fabric-identity. Create with setup-fabric-provision-identity.ps1 (same RG as this deployment) with a Fabric workspace role. Used as the MCP container app identity and as the Fabric seed deployment script identity. Its client ID is auto-derived by the deployment."
+      }
+    },
+    "fabricRepositoryArchiveUrl": {
+      "type": "string",
+      "defaultValue": "https://github.com/Foundry-Industry-Sandbox/cohere-loan-and-mortgage/archive/refs/heads/main.zip",
+      "metadata": {
+        "description": "Repository archive URL the seed script downloads to fetch infra/scripts/ and dataset-seed/."
+      }
+    }
+  },
+  "variables": {
+    "resolvedFoundryProjectName": "[format('{0}-project', parameters('baseName'))]",
+    "resourceTags": {
+      "project": "cohere-loan"
+    }
+  },
+  "functions": [],
+  "resources": [
+    {
+      "name": "pid-9ef1a92d-5cd1-4632-bef1-b40625f3fb54-partnercenter",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2023-07-01",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": []
+        }
+      }
+    },
+    {
+      "name": "default",
+      "type": "Microsoft.Resources/tags",
+      "apiVersion": "2021-04-01",
+      "properties": {
+        "tags": "[variables('resourceTags')]"
+      }
+    },
+    {
+      "name": "naming",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "baseName": {
+            "value": "[parameters('baseName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "712185865879443713"
+            }
+          },
+          "parameters": {
+            "baseName": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "deploymentSuffix": "[uniqueString(resourceGroup().id)]"
+          },
+          "resources": [],
+          "outputs": {
+            "deploymentSuffix": {
+              "type": "string",
+              "value": "[variables('deploymentSuffix')]"
+            },
+            "foundryAccountName": {
+              "type": "string",
+              "value": "[toLower(take(replace(format('{0}foundry{1}', parameters('baseName'), variables('deploymentSuffix')), '-', ''), 24))]"
+            },
+            "searchServiceName": {
+              "type": "string",
+              "value": "[toLower(take(replace(format('{0}search{1}', parameters('baseName'), variables('deploymentSuffix')), '-', ''), 60))]"
+            },
+            "documentIntelligenceAccountName": {
+              "type": "string",
+              "value": "[toLower(take(replace(format('{0}docintel{1}', parameters('baseName'), variables('deploymentSuffix')), '-', ''), 24))]"
+            },
+            "logAnalyticsName": {
+              "type": "string",
+              "value": "[take(format('{0}-logs-{1}', parameters('baseName'), variables('deploymentSuffix')), 63)]"
+            },
+            "applicationInsightsName": {
+              "type": "string",
+              "value": "[take(format('{0}-appi-{1}', parameters('baseName'), variables('deploymentSuffix')), 260)]"
+            },
+            "containerAppsEnvironmentName": {
+              "type": "string",
+              "value": "[take(format('{0}-cae-{1}', parameters('baseName'), variables('deploymentSuffix')), 63)]"
+            },
+            "apiAppName": {
+              "type": "string",
+              "value": "[take(format('{0}-api-{1}', parameters('baseName'), variables('deploymentSuffix')), 32)]"
+            },
+            "mcpAppName": {
+              "type": "string",
+              "value": "[take(format('{0}-mcp-{1}', parameters('baseName'), variables('deploymentSuffix')), 32)]"
+            },
+            "frontendAppName": {
+              "type": "string",
+              "value": "[take(format('{0}-web-{1}', parameters('baseName'), variables('deploymentSuffix')), 32)]"
+            },
+            "policySeedJobName": {
+              "type": "string",
+              "value": "[take(format('{0}-policyseed-{1}', parameters('baseName'), variables('deploymentSuffix')), 32)]"
+            },
+            "provisioningJobName": {
+              "type": "string",
+              "value": "[take(format('{0}-provision-{1}', parameters('baseName'), variables('deploymentSuffix')), 32)]"
+            },
+            "apiIdentityName": {
+              "type": "string",
+              "value": "[format('{0}-api-identity-{1}', parameters('baseName'), variables('deploymentSuffix'))]"
+            },
+            "mcpIdentityName": {
+              "type": "string",
+              "value": "[format('{0}-mcp-identity-{1}', parameters('baseName'), variables('deploymentSuffix'))]"
+            },
+            "provisioningIdentityName": {
+              "type": "string",
+              "value": "[format('{0}-provision-identity-{1}', parameters('baseName'), variables('deploymentSuffix'))]"
+            },
+            "deploymentScriptIdentityName": {
+              "type": "string",
+              "value": "[format('{0}-deployscript-{1}', parameters('baseName'), variables('deploymentSuffix'))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "data-services",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'naming')]"
+      ],
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceTags": {
+            "value": "[variables('resourceTags')]"
+          },
+          "searchServiceName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.searchServiceName.value]"
+          },
+          "searchSku": {
+            "value": "[parameters('searchSku')]"
+          },
+          "documentIntelligenceAccountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.documentIntelligenceAccountName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "10031045735430986618"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "resourceTags": {
+              "type": "object"
+            },
+            "searchServiceName": {
+              "type": "string"
+            },
+            "searchSku": {
+              "type": "string"
+            },
+            "documentIntelligenceAccountName": {
+              "type": "string"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Search/searchServices",
+              "apiVersion": "2023-11-01",
+              "name": "[parameters('searchServiceName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "sku": {
+                "name": "[parameters('searchSku')]"
+              },
+              "properties": {
+                "replicaCount": 1,
+                "partitionCount": 1,
+                "hostingMode": "default",
+                "publicNetworkAccess": "enabled",
+                "authOptions": {
+                  "aadOrApiKey": {
+                    "aadAuthFailureMode": "http401WithBearerChallenge"
+                  }
+                }
+              }
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('documentIntelligenceAccountName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "kind": "FormRecognizer",
+              "sku": {
+                "name": "S0"
+              },
+              "properties": {
+                "customSubDomainName": "[parameters('documentIntelligenceAccountName')]",
+                "publicNetworkAccess": "Enabled"
+              }
+            }
+          ],
+          "outputs": {
+            "searchServiceName": {
+              "type": "string",
+              "value": "[parameters('searchServiceName')]"
+            },
+            "searchServiceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]"
+            },
+            "searchServiceEndpoint": {
+              "type": "string",
+              "value": "[format('https://{0}.search.windows.net', parameters('searchServiceName'))]"
+            },
+            "documentIntelligenceAccountName": {
+              "type": "string",
+              "value": "[parameters('documentIntelligenceAccountName')]"
+            },
+            "documentIntelligenceAccountId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('documentIntelligenceAccountName'))]"
+            },
+            "documentIntelligenceEndpoint": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('documentIntelligenceAccountName')), '2023-05-01').endpoint]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "platform",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'naming')]"
+      ],
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceTags": {
+            "value": "[variables('resourceTags')]"
+          },
+          "logAnalyticsName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.logAnalyticsName.value]"
+          },
+          "applicationInsightsName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.applicationInsightsName.value]"
+          },
+          "containerAppsEnvironmentName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.containerAppsEnvironmentName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "9659518002384724515"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "resourceTags": {
+              "type": "object"
+            },
+            "logAnalyticsName": {
+              "type": "string"
+            },
+            "applicationInsightsName": {
+              "type": "string"
+            },
+            "containerAppsEnvironmentName": {
+              "type": "string"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2023-09-01",
+              "name": "[parameters('logAnalyticsName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": 30
+              }
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[parameters('applicationInsightsName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "kind": "web",
+              "properties": {
+                "Application_Type": "web",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName'))]",
+                "IngestionMode": "LogAnalytics",
+                "publicNetworkAccessForIngestion": "Enabled",
+                "publicNetworkAccessForQuery": "Enabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.App/managedEnvironments",
+              "apiVersion": "2024-03-01",
+              "name": "[parameters('containerAppsEnvironmentName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "properties": {
+                "appLogsConfiguration": {
+                  "destination": "log-analytics",
+                  "logAnalyticsConfiguration": {
+                    "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName')), '2023-09-01').customerId]",
+                    "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName')), '2023-09-01').primarySharedKey]"
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "containerAppsEnvironmentId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppsEnvironmentName'))]"
+            },
+            "logAnalyticsCustomerId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName')), '2023-09-01').customerId]"
+            },
+            "applicationInsightsId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/components', parameters('applicationInsightsName'))]"
+            },
+            "applicationInsightsConnectionString": {
+              "type": "securestring",
+              "value": "[reference(resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')), '2020-02-02').ConnectionString]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "foundry",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'naming')]",
+        "[resourceId('Microsoft.Resources/deployments', 'platform')]"
+      ],
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceTags": {
+            "value": "[variables('resourceTags')]"
+          },
+          "foundryAccountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.foundryAccountName.value]"
+          },
+          "resolvedFoundryProjectName": {
+            "value": "[variables('resolvedFoundryProjectName')]"
+          },
+          "modelDeploymentName": {
+            "value": "[parameters('modelDeploymentName')]"
+          },
+          "modelDeploymentSkuName": {
+            "value": "[parameters('modelDeploymentSkuName')]"
+          },
+          "modelDeploymentCapacity": {
+            "value": "[parameters('modelDeploymentCapacity')]"
+          },
+          "cohereModelName": {
+            "value": "[parameters('cohereModelName')]"
+          },
+          "cohereModelVersion": {
+            "value": "[parameters('cohereModelVersion')]"
+          },
+          "embedDeploymentName": {
+            "value": "[parameters('embedDeploymentName')]"
+          },
+          "embedModelName": {
+            "value": "[parameters('embedModelName')]"
+          },
+          "embedModelVersion": {
+            "value": "[parameters('embedModelVersion')]"
+          },
+          "embedDeploymentCapacity": {
+            "value": "[parameters('embedDeploymentCapacity')]"
+          },
+          "rerankDeploymentName": {
+            "value": "[parameters('rerankDeploymentName')]"
+          },
+          "rerankModelName": {
+            "value": "[parameters('rerankModelName')]"
+          },
+          "rerankModelVersion": {
+            "value": "[parameters('rerankModelVersion')]"
+          },
+          "rerankDeploymentCapacity": {
+            "value": "[parameters('rerankDeploymentCapacity')]"
+          },
+          "applicationInsightsId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'platform'), '2025-04-01').outputs.applicationInsightsId.value]"
+          },
+          "applicationInsightsConnectionString": {
+            "value": "[listOutputsWithSecureValues(resourceId('Microsoft.Resources/deployments', 'platform'), '2025-04-01').applicationInsightsConnectionString]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "11342678761715269667"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "resourceTags": {
+              "type": "object"
+            },
+            "foundryAccountName": {
+              "type": "string"
+            },
+            "resolvedFoundryProjectName": {
+              "type": "string"
+            },
+            "modelDeploymentName": {
+              "type": "string"
+            },
+            "modelDeploymentSkuName": {
+              "type": "string"
+            },
+            "modelDeploymentCapacity": {
+              "type": "int"
+            },
+            "cohereModelName": {
+              "type": "string"
+            },
+            "cohereModelVersion": {
+              "type": "string"
+            },
+            "embedDeploymentName": {
+              "type": "string"
+            },
+            "embedModelName": {
+              "type": "string"
+            },
+            "embedModelVersion": {
+              "type": "string"
+            },
+            "embedDeploymentCapacity": {
+              "type": "int"
+            },
+            "rerankDeploymentName": {
+              "type": "string"
+            },
+            "rerankModelName": {
+              "type": "string"
+            },
+            "rerankModelVersion": {
+              "type": "string"
+            },
+            "rerankDeploymentCapacity": {
+              "type": "int"
+            },
+            "applicationInsightsId": {
+              "type": "string"
+            },
+            "applicationInsightsConnectionString": {
+              "type": "securestring"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2025-06-01",
+              "name": "[parameters('foundryAccountName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "kind": "AIServices",
+              "sku": {
+                "name": "S0"
+              },
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "allowProjectManagement": true,
+                "customSubDomainName": "[parameters('foundryAccountName')]",
+                "publicNetworkAccess": "Enabled"
+              }
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects",
+              "apiVersion": "2025-06-01",
+              "name": "[format('{0}/{1}', parameters('foundryAccountName'), parameters('resolvedFoundryProjectName'))]",
+              "location": "[parameters('location')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {},
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+              "apiVersion": "2025-06-01",
+              "name": "[format('{0}/{1}/{2}', parameters('foundryAccountName'), parameters('resolvedFoundryProjectName'), 'appinsights')]",
+              "properties": {
+                "authType": "ApiKey",
+                "category": "AppInsights",
+                "target": "[parameters('applicationInsightsId')]",
+                "useWorkspaceManagedIdentity": false,
+                "isSharedToAll": true,
+                "sharedUserList": [],
+                "peRequirement": "NotRequired",
+                "peStatus": "NotApplicable",
+                "metadata": {
+                  "ApiType": "Azure",
+                  "ResourceId": "[parameters('applicationInsightsId')]"
+                },
+                "credentials": {
+                  "key": "[parameters('applicationInsightsConnectionString')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('foundryAccountName'), parameters('resolvedFoundryProjectName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-06-01",
+              "name": "[format('{0}/{1}', parameters('foundryAccountName'), parameters('modelDeploymentName'))]",
+              "sku": {
+                "name": "[parameters('modelDeploymentSkuName')]",
+                "capacity": "[parameters('modelDeploymentCapacity')]"
+              },
+              "properties": {
+                "model": {
+                  "format": "Cohere",
+                  "name": "[parameters('cohereModelName')]",
+                  "version": "[parameters('cohereModelVersion')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName'))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('foundryAccountName'), parameters('resolvedFoundryProjectName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-06-01",
+              "name": "[format('{0}/{1}', parameters('foundryAccountName'), parameters('embedDeploymentName'))]",
+              "sku": {
+                "name": "GlobalStandard",
+                "capacity": "[parameters('embedDeploymentCapacity')]"
+              },
+              "properties": {
+                "model": {
+                  "format": "Cohere",
+                  "name": "[parameters('embedModelName')]",
+                  "version": "[parameters('embedModelVersion')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName'))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('foundryAccountName'), parameters('resolvedFoundryProjectName'))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', parameters('foundryAccountName'), parameters('modelDeploymentName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-06-01",
+              "name": "[format('{0}/{1}', parameters('foundryAccountName'), parameters('rerankDeploymentName'))]",
+              "sku": {
+                "name": "GlobalStandard",
+                "capacity": "[parameters('rerankDeploymentCapacity')]"
+              },
+              "properties": {
+                "model": {
+                  "format": "Cohere",
+                  "name": "[parameters('rerankModelName')]",
+                  "version": "[parameters('rerankModelVersion')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', parameters('foundryAccountName'), parameters('embedDeploymentName'))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName'))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('foundryAccountName'), parameters('resolvedFoundryProjectName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "foundryAccountName": {
+              "type": "string",
+              "value": "[parameters('foundryAccountName')]"
+            },
+            "foundryAccountId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName'))]"
+            },
+            "foundryProjectName": {
+              "type": "string",
+              "value": "[parameters('resolvedFoundryProjectName')]"
+            },
+            "foundryProjectResourceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('foundryAccountName'), parameters('resolvedFoundryProjectName'))]"
+            },
+            "foundryProjectPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('foundryAccountName'), parameters('resolvedFoundryProjectName')), '2025-06-01', 'full').identity.principalId]"
+            },
+            "foundryProjectEndpoint": {
+              "type": "string",
+              "value": "[format('{0}/api/projects/{1}', format('https://{0}.services.ai.azure.com', reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), '2025-06-01').customSubDomainName), parameters('resolvedFoundryProjectName'))]"
+            },
+            "embedEndpoint": {
+              "type": "string",
+              "value": "[format('{0}/openai/deployments/{1}', format('https://{0}.services.ai.azure.com', reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), '2025-06-01').customSubDomainName), parameters('embedDeploymentName'))]"
+            },
+            "rerankEndpoint": {
+              "type": "string",
+              "value": "[format('https://{0}.services.ai.azure.com', reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), '2025-06-01').customSubDomainName)]"
+            },
+            "modelDeploymentName": {
+              "type": "string",
+              "value": "[parameters('modelDeploymentName')]"
+            },
+            "embedDeploymentName": {
+              "type": "string",
+              "value": "[parameters('embedDeploymentName')]"
+            },
+            "embedModelName": {
+              "type": "string",
+              "value": "[parameters('embedModelName')]"
+            },
+            "rerankDeploymentName": {
+              "type": "string",
+              "value": "[parameters('rerankDeploymentName')]"
+            },
+            "rerankModelName": {
+              "type": "string",
+              "value": "[parameters('rerankModelName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "security",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'data-services')]",
+        "[resourceId('Microsoft.Resources/deployments', 'foundry')]",
+        "[resourceId('Microsoft.Resources/deployments', 'naming')]"
+      ],
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceTags": {
+            "value": "[variables('resourceTags')]"
+          },
+          "apiIdentityName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.apiIdentityName.value]"
+          },
+          "provisioningIdentityName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.provisioningIdentityName.value]"
+          },
+          "foundryAccountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.foundryAccountName.value]"
+          },
+          "foundryProjectName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.foundryProjectName.value]"
+          },
+          "searchServiceName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'data-services'), '2025-04-01').outputs.searchServiceName.value]"
+          },
+          "documentIntelligenceAccountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'data-services'), '2025-04-01').outputs.documentIntelligenceAccountName.value]"
+          },
+          "enableFabric": {
+            "value": "[parameters('enableFabric')]"
+          },
+          "fabricIdentityName": {
+            "value": "[parameters('fabricIdentityName')]"
+          },
+          "mcpIdentityName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.mcpIdentityName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "15200094336258050023"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "resourceTags": {
+              "type": "object"
+            },
+            "apiIdentityName": {
+              "type": "string"
+            },
+            "provisioningIdentityName": {
+              "type": "string"
+            },
+            "foundryAccountName": {
+              "type": "string"
+            },
+            "foundryProjectName": {
+              "type": "string"
+            },
+            "searchServiceName": {
+              "type": "string"
+            },
+            "documentIntelligenceAccountName": {
+              "type": "string"
+            },
+            "enableFabric": {
+              "type": "bool"
+            },
+            "fabricIdentityName": {
+              "type": "string",
+              "defaultValue": "fabric-identity"
+            },
+            "mcpIdentityName": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "resolvedMcpIdentityId": "[if(parameters('enableFabric'), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('fabricIdentityName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('mcpIdentityName')))]"
+          },
+          "resources": [
+            {
+              "condition": "[not(parameters('enableFabric'))]",
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[parameters('mcpIdentityName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]"
+            },
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[parameters('apiIdentityName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]"
+            },
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[parameters('provisioningIdentityName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]"
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName')), 'CognitiveServicesUser')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName')), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('foundryAccountName'), parameters('foundryProjectName')), 'FoundryUser')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '53ca6127-db72-4b80-b1b0-d745d6d5456d')]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('foundryAccountName'), parameters('foundryProjectName')), '2025-06-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]",
+              "name": "[guid(resourceId('Microsoft.Search/searchServices', parameters('searchServiceName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName')), 'SearchServiceContributor')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7ca78c08-252a-4471-8644-bb5ff32d4ba0')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName')), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]",
+              "name": "[guid(resourceId('Microsoft.Search/searchServices', parameters('searchServiceName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName')), 'SearchIndexDataContributor')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8ebe5a00-799e-43f5-93ac-243d3dce84a7')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName')), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('documentIntelligenceAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('documentIntelligenceAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName')), 'CognitiveServicesUser')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName')), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]",
+              "name": "[guid(resourceId('Microsoft.Search/searchServices', parameters('searchServiceName')), variables('resolvedMcpIdentityId'), 'SearchServiceContributor')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7ca78c08-252a-4471-8644-bb5ff32d4ba0')]",
+                "principalId": "[if(parameters('enableFabric'), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('fabricIdentityName')), '2023-01-31').principalId, reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('mcpIdentityName')), '2023-01-31').principalId)]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('mcpIdentityName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]",
+              "name": "[guid(resourceId('Microsoft.Search/searchServices', parameters('searchServiceName')), variables('resolvedMcpIdentityId'), 'SearchIndexDataContributor')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8ebe5a00-799e-43f5-93ac-243d3dce84a7')]",
+                "principalId": "[if(parameters('enableFabric'), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('fabricIdentityName')), '2023-01-31').principalId, reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('mcpIdentityName')), '2023-01-31').principalId)]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('mcpIdentityName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), variables('resolvedMcpIdentityId'), 'CognitiveServicesUser')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
+                "principalId": "[if(parameters('enableFabric'), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('fabricIdentityName')), '2023-01-31').principalId, reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('mcpIdentityName')), '2023-01-31').principalId)]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('mcpIdentityName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('provisioningIdentityName')), 'CognitiveServicesContributor')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '25fbc0a9-bd7c-42a3-aa1a-3b75d497ee68')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('provisioningIdentityName')), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('provisioningIdentityName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('provisioningIdentityName')), 'FoundryUser')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '53ca6127-db72-4b80-b1b0-d745d6d5456d')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('provisioningIdentityName')), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('provisioningIdentityName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "apiIdentityId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName'))]"
+            },
+            "apiIdentityClientId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('apiIdentityName')), '2023-01-31').clientId]"
+            },
+            "mcpIdentityId": {
+              "type": "string",
+              "value": "[variables('resolvedMcpIdentityId')]"
+            },
+            "mcpIdentityClientId": {
+              "type": "string",
+              "value": "[if(parameters('enableFabric'), reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('fabricIdentityName')), '2023-01-31').clientId, reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('mcpIdentityName')), '2023-01-31').clientId)]"
+            },
+            "provisioningIdentityId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('provisioningIdentityName'))]"
+            },
+            "provisioningIdentityClientId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('provisioningIdentityName')), '2023-01-31').clientId]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "fabric-provision",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "condition": "[parameters('enableFabric')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'naming')]"
+      ],
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceTags": {
+            "value": "[variables('resourceTags')]"
+          },
+          "deploymentSuffix": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.deploymentSuffix.value]"
+          },
+          "fabricIdentityName": {
+            "value": "[parameters('fabricIdentityName')]"
+          },
+          "fabricWorkspaceName": {
+            "value": "[parameters('fabricWorkspaceName')]"
+          },
+          "fabricLakehouseName": {
+            "value": "[parameters('fabricLakehouseName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "4133761731538015466"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "resourceTags": {
+              "type": "object"
+            },
+            "deploymentSuffix": {
+              "type": "string"
+            },
+            "fabricIdentityName": {
+              "type": "string"
+            },
+            "fabricWorkspaceName": {
+              "type": "string"
+            },
+            "fabricLakehouseName": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "$fxv#0": "param(\n    [string]$WorkspaceName = '',\n    [string]$WorkspaceId = '',\n    [string]$LakehouseName = 'LoanProcessingLakehouse',\n    [string]$LakehouseId = ''\n)\n\n$ErrorActionPreference = 'Stop'\n\nif ([string]::IsNullOrWhiteSpace($WorkspaceName)) { $WorkspaceName = $env:FABRIC_WORKSPACE_NAME }\nif ([string]::IsNullOrWhiteSpace($WorkspaceId)) { $WorkspaceId = $env:FABRIC_WORKSPACE_ID }\nif ([string]::IsNullOrWhiteSpace($LakehouseName)) { $LakehouseName = $env:FABRIC_LAKEHOUSE_NAME }\nif ([string]::IsNullOrWhiteSpace($LakehouseId)) { $LakehouseId = $env:FABRIC_LAKEHOUSE_ID }\n\nfunction Get-FabricAccessToken {\n    $resource = 'https://api.fabric.microsoft.com'\n\n    if (-not [string]::IsNullOrWhiteSpace($env:AZURE_CLIENT_ID)) {\n        try {\n            $uri = \"http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=$resource&client_id=$($env:AZURE_CLIENT_ID)\"\n            $resp = Invoke-RestMethod -Uri $uri -Headers @{ Metadata = 'true' }\n            if (-not [string]::IsNullOrWhiteSpace($resp.access_token)) {\n                return $resp.access_token\n            }\n        }\n        catch {\n            Write-Verbose \"IMDS token request failed: $_\"\n        }\n    }\n\n    try {\n        return (Get-AzAccessToken -ResourceUrl $resource).Token\n    }\n    catch {}\n\n    $token = az account get-access-token --resource $resource --query accessToken -o tsv 2>$null\n    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($token)) {\n        return $token\n    }\n\n    throw \"Unable to acquire access token for '$resource' via IMDS, Az module, or az CLI.\"\n}\n\nfunction Invoke-FabricApi {\n    param(\n        [string]$Method,\n        [string]$RelativeUrl,\n        [object]$Body = $null\n    )\n\n    $uri = \"https://api.fabric.microsoft.com/v1/$RelativeUrl\"\n\n    $token = Get-FabricAccessToken\n    $headers = @{ Authorization = \"Bearer $token\" }\n\n    if ($null -eq $Body) {\n        return Invoke-RestMethod -Method $Method -Headers $headers -Uri $uri\n    }\n\n    $json = $Body | ConvertTo-Json -Depth 20\n    $headers['Content-Type'] = 'application/json'\n    return Invoke-RestMethod -Method $Method -Headers $headers -Uri $uri -Body $json\n}\n\nfunction Resolve-WorkspaceId {\n    param(\n        [string]$WorkspaceIdInput,\n        [string]$WorkspaceNameInput\n    )\n\n    if (-not [string]::IsNullOrWhiteSpace($WorkspaceIdInput)) {\n        $workspace = Invoke-FabricApi -Method 'GET' -RelativeUrl \"workspaces/$WorkspaceIdInput\"\n        if (-not $workspace -or [string]::IsNullOrWhiteSpace([string]$workspace.id)) {\n            throw \"WorkspaceId '$WorkspaceIdInput' was not found in Fabric.\"\n        }\n        return [ordered]@{\n            Id   = [string]$workspace.id\n            Name = [string]$workspace.displayName\n        }\n    }\n\n    if ([string]::IsNullOrWhiteSpace($WorkspaceNameInput)) {\n        throw 'WorkspaceName or WorkspaceId is required.'\n    }\n\n    $workspaces = $null\n    try {\n        $workspaces = Invoke-FabricApi -Method 'GET' -RelativeUrl 'workspaces'\n    }\n    catch {\n        $errorMessage = $_.Exception.Message\n        if ($errorMessage -match 'Unauthorized|401') {\n            throw @\"\nUnable to list Fabric workspaces (Unauthorized).\nHow to fix:\n1) Use the correct tenant/subscription in Azure CLI: az account show\n2) Ensure your identity has access to the target Fabric workspace (Member/Contributor/Admin)\n3) If listing workspaces is blocked in your tenant, run this script with -WorkspaceId instead of -WorkspaceName\n\nCurrent input:\n- WorkspaceName: '$WorkspaceNameInput'\n- WorkspaceId: '$WorkspaceIdInput'\n\"@\n        }\n\n        throw\n    }\n    $items = @()\n    if ($workspaces -and $workspaces.value) {\n        $items = @($workspaces.value)\n    }\n\n    $match = $items | Where-Object { $_.displayName -eq $WorkspaceNameInput } | Select-Object -First 1\n    if (-not $match) {\n        throw \"Workspace '$WorkspaceNameInput' was not found in Fabric.\"\n    }\n\n    return [ordered]@{\n        Id   = [string]$match.id\n        Name = [string]$match.displayName\n    }\n}\n\nfunction Get-LakehouseByName {\n    param(\n        [string]$ResolvedWorkspaceId,\n        [string]$TargetLakehouseName\n    )\n\n    $items = Invoke-FabricApi -Method 'GET' -RelativeUrl \"workspaces/$ResolvedWorkspaceId/items\"\n    $all = @()\n    if ($items -and $items.value) {\n        $all = @($items.value)\n    }\n\n    return $all |\n        Where-Object { $_.type -eq 'Lakehouse' -and $_.displayName -eq $TargetLakehouseName } |\n        Select-Object -First 1\n}\n\nfunction Wait-LakehouseReady {\n    param(\n        [string]$ResolvedWorkspaceId,\n        [string]$ResolvedLakehouseId,\n        [int]$MaxAttempts = 20,\n        [int]$DelaySeconds = 5\n    )\n\n    for ($i = 1; $i -le $MaxAttempts; $i++) {\n        $item = Invoke-FabricApi -Method 'GET' -RelativeUrl \"workspaces/$ResolvedWorkspaceId/items/$ResolvedLakehouseId\"\n        if ($item) {\n            return $item\n        }\n\n        Start-Sleep -Seconds $DelaySeconds\n    }\n\n    throw \"Lakehouse '$ResolvedLakehouseId' did not become queryable after $MaxAttempts attempts.\"\n}\n\nfunction Ensure-Lakehouse {\n    param(\n        [string]$ResolvedWorkspaceId,\n        [string]$TargetLakehouseId,\n        [string]$TargetLakehouseName\n    )\n\n    if (-not [string]::IsNullOrWhiteSpace($TargetLakehouseId)) {\n        $existing = Invoke-FabricApi -Method 'GET' -RelativeUrl \"workspaces/$ResolvedWorkspaceId/items/$TargetLakehouseId\"\n        if (-not $existing) {\n            throw \"LakehouseId '$TargetLakehouseId' was not found in workspace '$ResolvedWorkspaceId'.\"\n        }\n\n        if ($existing.type -ne 'Lakehouse') {\n            throw \"Item '$TargetLakehouseId' is not a Lakehouse.\"\n        }\n\n        Write-Host \"Using existing lakehouse by id: $($existing.displayName) ($TargetLakehouseId)\"\n        return [ordered]@{\n            Id = [string]$existing.id\n            Name = [string]$existing.displayName\n        }\n    }\n\n    $byName = Get-LakehouseByName -ResolvedWorkspaceId $ResolvedWorkspaceId -TargetLakehouseName $TargetLakehouseName\n    if ($byName) {\n        Write-Host \"Lakehouse already exists: $($byName.displayName) ($($byName.id))\"\n        return [ordered]@{\n            Id = [string]$byName.id\n            Name = [string]$byName.displayName\n        }\n    }\n\n    Write-Host \"Creating lakehouse '$TargetLakehouseName' in workspace '$ResolvedWorkspaceId'...\"\n    $created = Invoke-FabricApi -Method 'POST' -RelativeUrl \"workspaces/$ResolvedWorkspaceId/items\" -Body @{\n        displayName = $TargetLakehouseName\n        type = 'Lakehouse'\n    }\n\n    if (-not $created -or [string]::IsNullOrWhiteSpace([string]$created.id)) {\n        throw 'Fabric API did not return a lakehouse id after create request.'\n    }\n\n    $ready = Wait-LakehouseReady -ResolvedWorkspaceId $ResolvedWorkspaceId -ResolvedLakehouseId $created.id\n\n    return [ordered]@{\n        Id = [string]$ready.id\n        Name = [string]$ready.displayName\n    }\n}\n\nWrite-Host '=== Provision Fabric Lakehouse ==='\nWrite-Host \"WorkspaceName: $WorkspaceName\"\nWrite-Host \"WorkspaceId (input): $WorkspaceId\"\nWrite-Host \"LakehouseName: $LakehouseName\"\nWrite-Host \"LakehouseId (input): $LakehouseId\"\n\n$resolvedWorkspace = Resolve-WorkspaceId -WorkspaceIdInput $WorkspaceId -WorkspaceNameInput $WorkspaceName\n$resolvedWorkspaceId = $resolvedWorkspace.Id\n$resolvedWorkspaceName = $resolvedWorkspace.Name\nWrite-Host \"Resolved WorkspaceId: $resolvedWorkspaceId\"\nWrite-Host \"Resolved WorkspaceName: $resolvedWorkspaceName\"\n\n$lakehouse = Ensure-Lakehouse -ResolvedWorkspaceId $resolvedWorkspaceId -TargetLakehouseId $LakehouseId -TargetLakehouseName $LakehouseName\n$resolvedLakehouseId = $lakehouse.Id\n\nWrite-Host \"Resolved Lakehouse: $($lakehouse.Name) ($resolvedLakehouseId)\"\n\n$result = [ordered]@{\n    WorkspaceId   = $resolvedWorkspaceId\n    WorkspaceName = $resolvedWorkspaceName\n    LakehouseId   = $resolvedLakehouseId\n    LakehouseName = $lakehouse.Name\n}\n\n$resultFilePath = $env:PROVISION_RESULT_FILE\nif (-not [string]::IsNullOrWhiteSpace($resultFilePath)) {\n    $result | ConvertTo-Json -Depth 4 | Set-Content -Path $resultFilePath -Encoding UTF8\n    Write-Host \"Provision result written to $resultFilePath\"\n}\n\n$DeploymentScriptOutputs = @{}\n$DeploymentScriptOutputs['workspaceId']   = $resolvedWorkspaceId\n$DeploymentScriptOutputs['workspaceName'] = $resolvedWorkspaceName\n$DeploymentScriptOutputs['lakehouseId']   = $resolvedLakehouseId\n$DeploymentScriptOutputs['lakehouseName'] = $lakehouse.Name\n\nWrite-Host 'Provision completed successfully.'\nWrite-Host \"WorkspaceId: $resolvedWorkspaceId\"\nWrite-Host \"WorkspaceName: $resolvedWorkspaceName\"\nWrite-Host \"LakehouseId: $resolvedLakehouseId\"\n\nreturn $result\n"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2023-08-01",
+              "name": "[format('run-fabric-provision-{0}', parameters('deploymentSuffix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "kind": "AzurePowerShell",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('fabricIdentityName')))]": {}
+                }
+              },
+              "properties": {
+                "azPowerShellVersion": "11.0",
+                "retentionInterval": "P1D",
+                "timeout": "PT15M",
+                "cleanupPreference": "OnSuccess",
+                "forceUpdateTag": "[parameters('deploymentSuffix')]",
+                "scriptContent": "[variables('$fxv#0')]",
+                "environmentVariables": [
+                  {
+                    "name": "AZURE_CLIENT_ID",
+                    "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('fabricIdentityName')), '2023-01-31').clientId]"
+                  },
+                  {
+                    "name": "FABRIC_WORKSPACE_NAME",
+                    "value": "[parameters('fabricWorkspaceName')]"
+                  },
+                  {
+                    "name": "FABRIC_LAKEHOUSE_NAME",
+                    "value": "[parameters('fabricLakehouseName')]"
+                  }
+                ]
+              }
+            }
+          ],
+          "outputs": {
+            "workspaceId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deploymentScripts', format('run-fabric-provision-{0}', parameters('deploymentSuffix'))), '2023-08-01').outputs.workspaceId]"
+            },
+            "workspaceName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deploymentScripts', format('run-fabric-provision-{0}', parameters('deploymentSuffix'))), '2023-08-01').outputs.workspaceName]"
+            },
+            "lakehouseId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deploymentScripts', format('run-fabric-provision-{0}', parameters('deploymentSuffix'))), '2023-08-01').outputs.lakehouseId]"
+            },
+            "lakehouseName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Resources/deploymentScripts', format('run-fabric-provision-{0}', parameters('deploymentSuffix'))), '2023-08-01').outputs.lakehouseName]"
+            },
+            "provisionResourceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Resources/deploymentScripts', format('run-fabric-provision-{0}', parameters('deploymentSuffix')))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "container-apps",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'data-services')]",
+        "[resourceId('Microsoft.Resources/deployments', 'fabric-provision')]",
+        "[resourceId('Microsoft.Resources/deployments', 'foundry')]",
+        "[resourceId('Microsoft.Resources/deployments', 'naming')]",
+        "[resourceId('Microsoft.Resources/deployments', 'platform')]",
+        "[resourceId('Microsoft.Resources/deployments', 'security')]"
+      ],
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceTags": {
+            "value": "[variables('resourceTags')]"
+          },
+          "containerAppsEnvironmentId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'platform'), '2025-04-01').outputs.containerAppsEnvironmentId.value]"
+          },
+          "apiAppName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.apiAppName.value]"
+          },
+          "mcpAppName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.mcpAppName.value]"
+          },
+          "frontendAppName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.frontendAppName.value]"
+          },
+          "apiContainerImage": {
+            "value": "[parameters('apiContainerImage')]"
+          },
+          "mcpContainerImage": {
+            "value": "[parameters('mcpContainerImage')]"
+          },
+          "frontendContainerImage": {
+            "value": "[parameters('frontendContainerImage')]"
+          },
+          "apiIdentityId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'security'), '2025-04-01').outputs.apiIdentityId.value]"
+          },
+          "apiIdentityClientId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'security'), '2025-04-01').outputs.apiIdentityClientId.value]"
+          },
+          "mcpIdentityId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'security'), '2025-04-01').outputs.mcpIdentityId.value]"
+          },
+          "mcpIdentityClientId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'security'), '2025-04-01').outputs.mcpIdentityClientId.value]"
+          },
+          "foundryProjectEndpoint": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.foundryProjectEndpoint.value]"
+          },
+          "searchServiceEndpoint": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'data-services'), '2025-04-01').outputs.searchServiceEndpoint.value]"
+          },
+          "documentIntelligenceEndpoint": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'data-services'), '2025-04-01').outputs.documentIntelligenceEndpoint.value]"
+          },
+          "embedDeploymentName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.embedDeploymentName.value]"
+          },
+          "embedModelName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.embedModelName.value]"
+          },
+          "rerankDeploymentName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.rerankDeploymentName.value]"
+          },
+          "rerankModelName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.rerankModelName.value]"
+          },
+          "embedEndpoint": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.embedEndpoint.value]"
+          },
+          "rerankEndpoint": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.rerankEndpoint.value]"
+          },
+          "enableFabric": {
+            "value": "[parameters('enableFabric')]"
+          },
+          "fabricWorkspaceName": {
+            "value": "[parameters('fabricWorkspaceName')]"
+          },
+          "fabricLakehouseName": {
+            "value": "[parameters('fabricLakehouseName')]"
+          },
+          "applicationInsightsConnectionString": {
+            "value": "[listOutputsWithSecureValues(resourceId('Microsoft.Resources/deployments', 'platform'), '2025-04-01').applicationInsightsConnectionString]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "954937192782419906"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "resourceTags": {
+              "type": "object"
+            },
+            "containerAppsEnvironmentId": {
+              "type": "string"
+            },
+            "apiAppName": {
+              "type": "string"
+            },
+            "mcpAppName": {
+              "type": "string"
+            },
+            "frontendAppName": {
+              "type": "string"
+            },
+            "apiContainerImage": {
+              "type": "string"
+            },
+            "mcpContainerImage": {
+              "type": "string"
+            },
+            "frontendContainerImage": {
+              "type": "string"
+            },
+            "apiIdentityId": {
+              "type": "string"
+            },
+            "apiIdentityClientId": {
+              "type": "string"
+            },
+            "mcpIdentityId": {
+              "type": "string"
+            },
+            "mcpIdentityClientId": {
+              "type": "string"
+            },
+            "foundryProjectEndpoint": {
+              "type": "string"
+            },
+            "searchServiceEndpoint": {
+              "type": "string"
+            },
+            "documentIntelligenceEndpoint": {
+              "type": "string"
+            },
+            "embedDeploymentName": {
+              "type": "string"
+            },
+            "embedModelName": {
+              "type": "string"
+            },
+            "rerankDeploymentName": {
+              "type": "string"
+            },
+            "rerankModelName": {
+              "type": "string"
+            },
+            "embedEndpoint": {
+              "type": "string"
+            },
+            "rerankEndpoint": {
+              "type": "string"
+            },
+            "enableFabric": {
+              "type": "bool",
+              "defaultValue": false
+            },
+            "fabricWorkspaceName": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "fabricLakehouseName": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "fabricLakehouseTimeoutSeconds": {
+              "type": "int",
+              "defaultValue": 60
+            },
+            "applicationInsightsConnectionString": {
+              "type": "securestring"
+            }
+          },
+          "variables": {
+            "dataSourceMode": "[if(parameters('enableFabric'), 'Fabric', 'Local')]",
+            "appInsightsEnv": [
+              {
+                "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                "secretRef": "application-insights-connection-string"
+              }
+            ],
+            "mcpFabricEnv": "[if(parameters('enableFabric'), createArray(createObject('name', 'DataSource__FabricLakehouse__WorkspaceName', 'value', parameters('fabricWorkspaceName')), createObject('name', 'DataSource__FabricLakehouse__LakehouseName', 'value', parameters('fabricLakehouseName')), createObject('name', 'DataSource__FabricLakehouse__TimeoutSeconds', 'value', string(parameters('fabricLakehouseTimeoutSeconds')))), createArray())]",
+            "mcpFoundryModelEnv": [
+              {
+                "name": "AzureFoundryModels__EmbedDeploymentName",
+                "value": "[parameters('embedDeploymentName')]"
+              },
+              {
+                "name": "AzureFoundryModels__RerankDeploymentName",
+                "value": "[parameters('rerankDeploymentName')]"
+              },
+              {
+                "name": "AzureFoundryModels__EmbedModelName",
+                "value": "[parameters('embedModelName')]"
+              },
+              {
+                "name": "AzureFoundryModels__RerankModelName",
+                "value": "[parameters('rerankModelName')]"
+              },
+              {
+                "name": "AzureFoundryModels__EmbedEndpoint",
+                "value": "[parameters('embedEndpoint')]"
+              },
+              {
+                "name": "AzureFoundryModels__RerankEndpoint",
+                "value": "[parameters('rerankEndpoint')]"
+              },
+              {
+                "name": "AzureFoundryModels__EmbeddingDimensions",
+                "value": "1024"
+              },
+              {
+                "name": "AzureFoundryModels__EmbeddingBatchSize",
+                "value": "16"
+              },
+              {
+                "name": "AzureFoundryModels__MaxConcurrentEmbeddingRequests",
+                "value": "1"
+              },
+              {
+                "name": "AzureFoundryModels__MaxConcurrentRerankRequests",
+                "value": "2"
+              }
+            ],
+            "mcpContainerEnv": "[concat(createArray(createObject('name', 'AzureSearch__Endpoint', 'value', parameters('searchServiceEndpoint')), createObject('name', 'AzureSearch__EvidenceIndexName', 'value', 'loan-case-evidence'), createObject('name', 'AzureSearch__PolicyIndexName', 'value', 'loan-policy-knowledge'), createObject('name', 'AzureSearch__VectorDimensions', 'value', '1024'), createObject('name', 'Dataset__RootPath', 'value', '/app/dataset-seed'), createObject('name', 'Dataset__PolicyFilePath', 'value', '/app/dataset-seed/policies/general_policy.txt'), createObject('name', 'DataSource__Mode', 'value', variables('dataSourceMode')), createObject('name', 'AZURE_CLIENT_ID', 'value', parameters('mcpIdentityClientId'))), variables('mcpFabricEnv'), variables('mcpFoundryModelEnv'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[parameters('mcpAppName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('mcpIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[parameters('containerAppsEnvironmentId')]",
+                "configuration": {
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 8080,
+                    "transport": "auto"
+                  },
+                  "secrets": [
+                    {
+                      "name": "application-insights-connection-string",
+                      "value": "[parameters('applicationInsightsConnectionString')]"
+                    }
+                  ]
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "mcp",
+                      "image": "[parameters('mcpContainerImage')]",
+                      "resources": {
+                        "cpu": "[json('1')]",
+                        "memory": "2Gi"
+                      },
+                      "env": "[concat(variables('mcpContainerEnv'), variables('appInsightsEnv'), createArray(createObject('name', 'McpStartup__EnsureSearchIndexesOnStartup', 'value', 'true'), createObject('name', 'McpStartup__SeedPoliciesOnStartup', 'value', 'false')))]",
+                      "probes": [
+                        {
+                          "type": "Liveness",
+                          "httpGet": {
+                            "path": "/health",
+                            "port": 8080
+                          },
+                          "initialDelaySeconds": 15,
+                          "periodSeconds": 30
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 1
+                  }
+                }
+              }
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[parameters('apiAppName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('apiIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[parameters('containerAppsEnvironmentId')]",
+                "configuration": {
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 8080,
+                    "transport": "auto"
+                  },
+                  "secrets": [
+                    {
+                      "name": "application-insights-connection-string",
+                      "value": "[parameters('applicationInsightsConnectionString')]"
+                    }
+                  ]
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "api",
+                      "image": "[parameters('apiContainerImage')]",
+                      "resources": {
+                        "cpu": "[json('1')]",
+                        "memory": "2Gi"
+                      },
+                      "env": "[concat(createArray(createObject('name', 'AZURE_FOUNDRY_PROJECT_ENDPOINT', 'value', parameters('foundryProjectEndpoint')), createObject('name', 'AzureSearch__Endpoint', 'value', parameters('searchServiceEndpoint')), createObject('name', 'AzureSearch__EvidenceIndexName', 'value', 'loan-case-evidence'), createObject('name', 'AzureSearch__PolicyIndexName', 'value', 'loan-policy-knowledge'), createObject('name', 'AzureSearch__VectorDimensions', 'value', '1024'), createObject('name', 'Dataset__RootPath', 'value', '/app/dataset-seed'), createObject('name', 'Dataset__PolicyFilePath', 'value', '/app/dataset-seed/policies/general_policy.txt'), createObject('name', 'AzureFoundryModels__EmbedDeploymentName', 'value', parameters('embedDeploymentName')), createObject('name', 'AzureFoundryModels__RerankDeploymentName', 'value', parameters('rerankDeploymentName')), createObject('name', 'AzureFoundryModels__EmbedModelName', 'value', parameters('embedModelName')), createObject('name', 'AzureFoundryModels__RerankModelName', 'value', parameters('rerankModelName')), createObject('name', 'AzureFoundryModels__EmbedEndpoint', 'value', parameters('embedEndpoint')), createObject('name', 'AzureFoundryModels__RerankEndpoint', 'value', parameters('rerankEndpoint')), createObject('name', 'AzureFoundryModels__EmbeddingDimensions', 'value', '1024'), createObject('name', 'AzureFoundryModels__EmbeddingBatchSize', 'value', '16'), createObject('name', 'AzureFoundryModels__MaxConcurrentEmbeddingRequests', 'value', '1'), createObject('name', 'AzureFoundryModels__MaxConcurrentRerankRequests', 'value', '2'), createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', 'Production'), createObject('name', 'AZURE_CLIENT_ID', 'value', parameters('apiIdentityClientId')), createObject('name', 'DocumentExtraction__Endpoint', 'value', parameters('documentIntelligenceEndpoint'))), variables('appInsightsEnv'))]",
+                      "probes": [
+                        {
+                          "type": "Liveness",
+                          "httpGet": {
+                            "path": "/health",
+                            "port": 8080
+                          },
+                          "initialDelaySeconds": 10,
+                          "periodSeconds": 30
+                        },
+                        {
+                          "type": "Readiness",
+                          "httpGet": {
+                            "path": "/health",
+                            "port": 8080
+                          },
+                          "initialDelaySeconds": 5,
+                          "periodSeconds": 15
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 1
+                  }
+                }
+              }
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[parameters('frontendAppName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "properties": {
+                "managedEnvironmentId": "[parameters('containerAppsEnvironmentId')]",
+                "configuration": {
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 8080,
+                    "transport": "auto"
+                  }
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "frontend",
+                      "image": "[parameters('frontendContainerImage')]",
+                      "resources": {
+                        "cpu": "[json('1')]",
+                        "memory": "2Gi"
+                      },
+                      "env": [
+                        {
+                          "name": "ASPNETCORE_ENVIRONMENT",
+                          "value": "Production"
+                        },
+                        {
+                          "name": "ApiBaseUrl",
+                          "value": "[format('https://{0}/', reference(resourceId('Microsoft.App/containerApps', parameters('apiAppName')), '2024-03-01').configuration.ingress.fqdn)]"
+                        }
+                      ],
+                      "probes": [
+                        {
+                          "type": "Liveness",
+                          "httpGet": {
+                            "path": "/",
+                            "port": 8080
+                          },
+                          "initialDelaySeconds": 10,
+                          "periodSeconds": 30
+                        },
+                        {
+                          "type": "Readiness",
+                          "httpGet": {
+                            "path": "/",
+                            "port": 8080
+                          },
+                          "initialDelaySeconds": 5,
+                          "periodSeconds": 15
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 1
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/containerApps', parameters('apiAppName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "apiUrl": {
+              "type": "string",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', parameters('apiAppName')), '2024-03-01').configuration.ingress.fqdn)]"
+            },
+            "frontendUrl": {
+              "type": "string",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', parameters('frontendAppName')), '2024-03-01').configuration.ingress.fqdn)]"
+            },
+            "mcpUrl": {
+              "type": "string",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', parameters('mcpAppName')), '2024-03-01').configuration.ingress.fqdn)]"
+            },
+            "mcpFqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/containerApps', parameters('mcpAppName')), '2024-03-01').configuration.ingress.fqdn]"
+            },
+            "mcpContainerEnv": {
+              "type": "array",
+              "value": "[variables('mcpContainerEnv')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "container-jobs",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'container-apps')]",
+        "[resourceId('Microsoft.Resources/deployments', 'foundry')]",
+        "[resourceId('Microsoft.Resources/deployments', 'naming')]",
+        "[resourceId('Microsoft.Resources/deployments', 'platform')]",
+        "[resourceId('Microsoft.Resources/deployments', 'security')]"
+      ],
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceTags": {
+            "value": "[variables('resourceTags')]"
+          },
+          "containerAppsEnvironmentId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'platform'), '2025-04-01').outputs.containerAppsEnvironmentId.value]"
+          },
+          "policySeedJobName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.policySeedJobName.value]"
+          },
+          "provisioningJobName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.provisioningJobName.value]"
+          },
+          "mcpContainerImage": {
+            "value": "[parameters('mcpContainerImage')]"
+          },
+          "provisioningContainerImage": {
+            "value": "[parameters('provisioningContainerImage')]"
+          },
+          "mcpIdentityId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'security'), '2025-04-01').outputs.mcpIdentityId.value]"
+          },
+          "provisioningIdentityId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'security'), '2025-04-01').outputs.provisioningIdentityId.value]"
+          },
+          "provisioningIdentityClientId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'security'), '2025-04-01').outputs.provisioningIdentityClientId.value]"
+          },
+          "mcpUrl": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-apps'), '2025-04-01').outputs.mcpUrl.value]"
+          },
+          "mcpContainerEnv": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-apps'), '2025-04-01').outputs.mcpContainerEnv.value]"
+          },
+          "foundryProjectEndpoint": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.foundryProjectEndpoint.value]"
+          },
+          "modelDeploymentName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.modelDeploymentName.value]"
+          },
+          "applicationInsightsConnectionString": {
+            "value": "[listOutputsWithSecureValues(resourceId('Microsoft.Resources/deployments', 'platform'), '2025-04-01').applicationInsightsConnectionString]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "10673290618640552960"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "resourceTags": {
+              "type": "object"
+            },
+            "containerAppsEnvironmentId": {
+              "type": "string"
+            },
+            "policySeedJobName": {
+              "type": "string"
+            },
+            "provisioningJobName": {
+              "type": "string"
+            },
+            "mcpContainerImage": {
+              "type": "string"
+            },
+            "provisioningContainerImage": {
+              "type": "string"
+            },
+            "mcpIdentityId": {
+              "type": "string"
+            },
+            "provisioningIdentityId": {
+              "type": "string"
+            },
+            "provisioningIdentityClientId": {
+              "type": "string"
+            },
+            "mcpUrl": {
+              "type": "string"
+            },
+            "mcpContainerEnv": {
+              "type": "array"
+            },
+            "foundryProjectEndpoint": {
+              "type": "string"
+            },
+            "modelDeploymentName": {
+              "type": "string"
+            },
+            "applicationInsightsConnectionString": {
+              "type": "securestring"
+            }
+          },
+          "variables": {
+            "appInsightsEnv": [
+              {
+                "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                "secretRef": "application-insights-connection-string"
+              }
+            ],
+            "policySeedContainerEnv": "[concat(parameters('mcpContainerEnv'), variables('appInsightsEnv'), createArray(createObject('name', 'AzureFoundryModels__MaxRetryAttempts', 'value', '10'), createObject('name', 'AzureFoundryModels__MaxDelaySeconds', 'value', '60')))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/jobs",
+              "apiVersion": "2024-03-01",
+              "name": "[parameters('policySeedJobName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('mcpIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "environmentId": "[parameters('containerAppsEnvironmentId')]",
+                "configuration": {
+                  "secrets": [
+                    {
+                      "name": "application-insights-connection-string",
+                      "value": "[parameters('applicationInsightsConnectionString')]"
+                    }
+                  ],
+                  "triggerType": "Manual",
+                  "replicaTimeout": 1800,
+                  "replicaRetryLimit": 0,
+                  "manualTriggerConfig": {
+                    "replicaCompletionCount": 1,
+                    "parallelism": 1
+                  }
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "policy-seed",
+                      "image": "[parameters('mcpContainerImage')]",
+                      "command": [
+                        "dotnet",
+                        "LoanWorkflow.Mcp.dll",
+                        "--seed-policies"
+                      ],
+                      "resources": {
+                        "cpu": "[json('1')]",
+                        "memory": "2Gi"
+                      },
+                      "env": "[variables('policySeedContainerEnv')]"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "type": "Microsoft.App/jobs",
+              "apiVersion": "2024-03-01",
+              "name": "[parameters('provisioningJobName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('provisioningIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "environmentId": "[parameters('containerAppsEnvironmentId')]",
+                "configuration": {
+                  "triggerType": "Manual",
+                  "replicaTimeout": 1800,
+                  "replicaRetryLimit": 0,
+                  "manualTriggerConfig": {
+                    "replicaCompletionCount": 1,
+                    "parallelism": 1
+                  }
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "agent-provisioning",
+                      "image": "[parameters('provisioningContainerImage')]",
+                      "resources": {
+                        "cpu": "[json('1')]",
+                        "memory": "2Gi"
+                      },
+                      "env": [
+                        {
+                          "name": "AZURE_FOUNDRY_PROJECT_ENDPOINT",
+                          "value": "[parameters('foundryProjectEndpoint')]"
+                        },
+                        {
+                          "name": "FOUNDRY_PROJECT_ENDPOINT",
+                          "value": "[parameters('foundryProjectEndpoint')]"
+                        },
+                        {
+                          "name": "ProjectEndpoint",
+                          "value": "[parameters('foundryProjectEndpoint')]"
+                        },
+                        {
+                          "name": "AZURE_AI_MODEL_DEPLOYMENT_NAME",
+                          "value": "[parameters('modelDeploymentName')]"
+                        },
+                        {
+                          "name": "ModelDeploymentName",
+                          "value": "[parameters('modelDeploymentName')]"
+                        },
+                        {
+                          "name": "MCP_BASE_URL",
+                          "value": "[parameters('mcpUrl')]"
+                        },
+                        {
+                          "name": "AZURE_CLIENT_ID",
+                          "value": "[parameters('provisioningIdentityClientId')]"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "policySeedJobName": {
+              "type": "string",
+              "value": "[parameters('policySeedJobName')]"
+            },
+            "provisioningJobName": {
+              "type": "string",
+              "value": "[parameters('provisioningJobName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "post-deploy-scripts",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'container-jobs')]",
+        "[resourceId('Microsoft.Resources/deployments', 'fabric-provision')]",
+        "[resourceId('Microsoft.Resources/deployments', 'foundry')]",
+        "[resourceId('Microsoft.Resources/deployments', 'naming')]"
+      ],
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "resourceTags": {
+            "value": "[variables('resourceTags')]"
+          },
+          "deploymentSuffix": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.deploymentSuffix.value]"
+          },
+          "deploymentScriptIdentityName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.deploymentScriptIdentityName.value]"
+          },
+          "foundryAccountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.foundryAccountName.value]"
+          },
+          "foundryProjectName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.foundryProjectName.value]"
+          },
+          "policySeedJobName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.policySeedJobName.value]"
+          },
+          "provisioningJobName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'naming'), '2025-04-01').outputs.provisioningJobName.value]"
+          },
+          "enableFabric": {
+            "value": "[parameters('enableFabric')]"
+          },
+          "fabricIdentityName": {
+            "value": "[parameters('fabricIdentityName')]"
+          },
+          "fabricWorkspaceId": "[if(parameters('enableFabric'), createObject('value', reference(resourceId('Microsoft.Resources/deployments', 'fabric-provision'), '2025-04-01').outputs.workspaceId.value), createObject('value', ''))]",
+          "fabricWorkspaceName": "[if(parameters('enableFabric'), createObject('value', reference(resourceId('Microsoft.Resources/deployments', 'fabric-provision'), '2025-04-01').outputs.workspaceName.value), createObject('value', ''))]",
+          "fabricLakehouseId": "[if(parameters('enableFabric'), createObject('value', reference(resourceId('Microsoft.Resources/deployments', 'fabric-provision'), '2025-04-01').outputs.lakehouseId.value), createObject('value', ''))]",
+          "fabricLakehouseName": "[if(parameters('enableFabric'), createObject('value', reference(resourceId('Microsoft.Resources/deployments', 'fabric-provision'), '2025-04-01').outputs.lakehouseName.value), createObject('value', ''))]",
+          "fabricRepositoryArchiveUrl": {
+            "value": "[parameters('fabricRepositoryArchiveUrl')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "16204017478426887003"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "resourceTags": {
+              "type": "object"
+            },
+            "deploymentSuffix": {
+              "type": "string"
+            },
+            "deploymentScriptIdentityName": {
+              "type": "string"
+            },
+            "foundryAccountName": {
+              "type": "string"
+            },
+            "foundryProjectName": {
+              "type": "string"
+            },
+            "policySeedJobName": {
+              "type": "string"
+            },
+            "provisioningJobName": {
+              "type": "string"
+            },
+            "enableFabric": {
+              "type": "bool"
+            },
+            "fabricIdentityName": {
+              "type": "string",
+              "defaultValue": "fabric-identity"
+            },
+            "fabricWorkspaceId": {
+              "type": "string"
+            },
+            "fabricWorkspaceName": {
+              "type": "string"
+            },
+            "fabricLakehouseId": {
+              "type": "string"
+            },
+            "fabricLakehouseName": {
+              "type": "string"
+            },
+            "fabricRepositoryArchiveUrl": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "$fxv#0": "$ErrorActionPreference = 'Stop'\n\n$envWorkspaceName = $env:FABRIC_WORKSPACE_NAME\n$envLakehouseName = $env:FABRIC_LAKEHOUSE_NAME\n$envRepositoryArchiveUrl = $env:REPOSITORY_ARCHIVE_URL\n$envGithubToken = $env:GITHUB_TOKEN\n\nif ([string]::IsNullOrWhiteSpace($envWorkspaceName)) {\n    throw 'FABRIC_WORKSPACE_NAME is required (set by Bicep runFabricSeed environment variables).'\n}\nif ([string]::IsNullOrWhiteSpace($envLakehouseName)) {\n    throw 'FABRIC_LAKEHOUSE_NAME is required (set by Bicep runFabricSeed environment variables).'\n}\nif ([string]::IsNullOrWhiteSpace($envRepositoryArchiveUrl)) {\n    throw 'REPOSITORY_ARCHIVE_URL is required (set by Bicep runFabricSeed from fabricRepositoryArchiveUrl).'\n}\n\nfunction Get-ScratchRoot {\n    foreach ($candidate in @($env:TEMP, $env:TMPDIR, '/tmp')) {\n        if (-not [string]::IsNullOrWhiteSpace($candidate)) {\n            return $candidate\n        }\n    }\n    return '/tmp'\n}\n\nfunction Expand-ArchiveCrossPlatform {\n    param(\n        [Parameter(Mandatory = $true)]\n        [string]$ArchivePath,\n        [Parameter(Mandatory = $true)]\n        [string]$DestinationPath\n    )\n\n    try {\n        Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestinationPath -Force\n        return\n    }\n    catch {\n        Write-Host \"Expand-Archive failed, trying unzip: $($_.Exception.Message)\"\n    }\n\n    $unzip = Get-Command unzip -ErrorAction SilentlyContinue\n    if (-not $unzip) {\n        throw 'Could not extract repository archive: Expand-Archive failed and unzip is unavailable.'\n    }\n\n    & $unzip.Source -o $ArchivePath -d $DestinationPath\n    if ($LASTEXITCODE -ne 0) {\n        throw \"unzip failed with exit code $LASTEXITCODE\"\n    }\n}\n\nWrite-Host '=== Fabric Data Seed (deployment script) ==='\nWrite-Host \"WorkspaceName: $envWorkspaceName\"\nWrite-Host \"LakehouseName: $envLakehouseName\"\nWrite-Host \"RepositoryArchiveUrl: $envRepositoryArchiveUrl\"\n\n$workDir = Join-Path (Get-ScratchRoot) 'fabric-seed'\nif (Test-Path -LiteralPath $workDir) {\n    Remove-Item -LiteralPath $workDir -Recurse -Force\n}\nNew-Item -ItemType Directory -Force -Path $workDir | Out-Null\n\n$archivePath = Join-Path $workDir 'repo.zip'\nWrite-Host \"Downloading repository archive: $envRepositoryArchiveUrl\"\n$downloadHeaders = @{}\nif (-not [string]::IsNullOrWhiteSpace($envGithubToken)) {\n    $downloadHeaders['Authorization'] = \"Bearer $envGithubToken\"\n}\nInvoke-WebRequest -Uri $envRepositoryArchiveUrl -Headers $downloadHeaders -OutFile $archivePath -UseBasicParsing\n\nWrite-Host 'Extracting repository archive...'\nExpand-ArchiveCrossPlatform -ArchivePath $archivePath -DestinationPath $workDir\n\n$repoRoot = Get-ChildItem $workDir -Directory | Where-Object {\n    (Test-Path (Join-Path $_.FullName 'infra/scripts') -PathType Container) -and\n    (Test-Path (Join-Path $_.FullName 'dataset-seed')   -PathType Container)\n} | Select-Object -First 1\n\nif (-not $repoRoot) {\n    if ((Test-Path (Join-Path $workDir 'infra/scripts') -PathType Container) -and\n        (Test-Path (Join-Path $workDir 'dataset-seed')   -PathType Container)) {\n        $repoRoot = Get-Item $workDir\n    }\n}\n\nif (-not $repoRoot) {\n    throw \"Could not locate extracted repository root. Expected either a wrapper directory containing both 'infra/scripts' and 'dataset-seed', or those two directories at the top level of the archive.\"\n}\n\n$scriptsDirectory = Join-Path $repoRoot.FullName 'infra/scripts'\n\nWrite-Host 'Pre-resolving Fabric lakehouse from workspace name...'\ntry {\n    $provisionResult = & (Join-Path $scriptsDirectory 'provision-fabric-lakehouse.ps1') `\n        -WorkspaceName $envWorkspaceName `\n        -LakehouseName $envLakehouseName\n}\ncatch {\n    throw \"provision-fabric-lakehouse.ps1 threw: $($_.Exception.Message)`n$($_.ScriptStackTrace)\"\n}\nif ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {\n    throw \"provision-fabric-lakehouse.ps1 failed with exit code $LASTEXITCODE\"\n}\n\n$envWorkspaceId = [string]$provisionResult.WorkspaceId\n$envLakehouseId = [string]$provisionResult.LakehouseId\n\nif ([string]::IsNullOrWhiteSpace($envWorkspaceId) -or [string]::IsNullOrWhiteSpace($envLakehouseId)) {\n    throw 'Pre-resolve did not return a valid workspaceId and lakehouseId.'\n}\n\nWrite-Host \"Resolved WorkspaceId: $envWorkspaceId\"\nWrite-Host \"Resolved LakehouseId: $envLakehouseId\"\n\n$datasetSeedPath = Join-Path $repoRoot.FullName 'dataset-seed'\nWrite-Host \"Running seed-fabric-structured-files.ps1 (dataset: $datasetSeedPath)...\"\n& (Join-Path $scriptsDirectory 'seed-fabric-structured-files.ps1') `\n    -WorkspaceId $envWorkspaceId `\n    -LakehouseId $envLakehouseId `\n    -DatasetSeedPath $datasetSeedPath\nif ($LASTEXITCODE -ne 0) {\n    throw \"seed-fabric-structured-files.ps1 failed with exit code $LASTEXITCODE\"\n}\n\n$DeploymentScriptOutputs = @{}\n$DeploymentScriptOutputs['workspaceId'] = $envWorkspaceId\n$DeploymentScriptOutputs['lakehouseId'] = $envLakehouseId\n$DeploymentScriptOutputs['lakehouseName'] = $envLakehouseName\n\nWrite-Host 'Fabric data seed completed successfully.'\nWrite-Host \"WorkspaceId: $envWorkspaceId\"\nWrite-Host \"LakehouseId: $envLakehouseId\"\n"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[parameters('deploymentScriptIdentityName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]"
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(resourceGroup().id, resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName')), 'Contributor')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName')), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName')), 'CognitiveServicesContributor')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '25fbc0a9-bd7c-42a3-aa1a-3b75d497ee68')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName')), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName')), 'FoundryUser')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '53ca6127-db72-4b80-b1b0-d745d6d5456d')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName')), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ContainerInstance/containerGroups",
+              "apiVersion": "2023-05-01",
+              "name": "[format('run-post-deploy-{0}', parameters('deploymentSuffix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName')))]": {}
+                }
+              },
+              "properties": {
+                "containers": [
+                  {
+                    "name": "post-deploy-runner",
+                    "properties": {
+                      "image": "mcr.microsoft.com/azure-cli:2.62.0",
+                      "command": [
+                        "/bin/bash",
+                        "-c",
+                        "              set -euo pipefail\n\n              echo \"Waiting for role assignments and Foundry deployments to settle...\"\n              sleep 180\n\n              authenticated=false\n              for attempt in $(seq 1 12); do\n                echo \"Signing in with the post-deployment managed identity (attempt ${attempt}/12)...\"\n                if az login --identity --username \"${AZURE_CLIENT_ID}\" --allow-no-subscriptions >/dev/null && \\\n                   az account set --subscription \"${AZURE_SUBSCRIPTION_ID}\"; then\n                  authenticated=true\n                  break\n                fi\n                sleep 15\n              done\n\n              if [ \"${authenticated}\" != \"true\" ]; then\n                echo \"Managed identity sign-in failed after 12 attempts.\" >&2\n                exit 1\n              fi\n\n              az extension add --name containerapp --upgrade\n\n              run_job() {\n                local job_name=\"$1\"\n                local container_name=\"$2\"\n                local display_name=\"$3\"\n                local execution\n                local status\n\n                echo \"Starting ${display_name} job...\"\n                execution=$(az containerapp job start \\\n                  --name \"${job_name}\" \\\n                  --resource-group \"${RESOURCE_GROUP}\" \\\n                  --query name -o tsv)\n\n                if [ -z \"${execution}\" ]; then\n                  echo \"${display_name} job did not return an execution name.\" >&2\n                  return 1\n                fi\n\n                echo \"${display_name} job execution: ${execution}\"\n\n                for i in $(seq 1 120); do\n                  if ! status=$(az containerapp job execution show \\\n                    --name \"${job_name}\" \\\n                    --resource-group \"${RESOURCE_GROUP}\" \\\n                    --job-execution-name \"${execution}\" \\\n                    --query properties.status -o tsv); then\n                    echo \"Unable to read ${display_name} job status; retrying...\"\n                    sleep 15\n                    continue\n                  fi\n\n                  echo \"${display_name} job status: ${status}\"\n\n                  if [ \"${status}\" = \"Succeeded\" ]; then\n                    echo \"${display_name} completed successfully.\"\n                    return 0\n                  fi\n\n                  if [ \"${status}\" = \"Failed\" ]; then\n                    echo \"${display_name} failed. Fetching recent job logs...\" >&2\n                    az containerapp job logs show \\\n                      --name \"${job_name}\" \\\n                      --resource-group \"${RESOURCE_GROUP}\" \\\n                      --execution \"${execution}\" \\\n                      --container \"${container_name}\" \\\n                      --tail 50 || true\n                    return 1\n                  fi\n\n                  sleep 15\n                done\n\n                echo \"Timed out waiting for ${display_name} job.\" >&2\n                return 1\n              }\n\n              run_job \"${POLICY_SEED_JOB_NAME}\" policy-seed \"Policy seed\"\n\n              echo \"Waiting briefly before agent provisioning...\"\n              sleep 60\n\n              run_job \"${PROVISIONING_JOB_NAME}\" agent-provisioning \"Agent provisioning\"\n              echo \"Post-deployment initialization completed successfully.\"\n            "
+                      ],
+                      "environmentVariables": [
+                        {
+                          "name": "AZURE_CLIENT_ID",
+                          "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName')), '2023-01-31').clientId]"
+                        },
+                        {
+                          "name": "AZURE_SUBSCRIPTION_ID",
+                          "value": "[subscription().subscriptionId]"
+                        },
+                        {
+                          "name": "RESOURCE_GROUP",
+                          "value": "[resourceGroup().name]"
+                        },
+                        {
+                          "name": "POLICY_SEED_JOB_NAME",
+                          "value": "[parameters('policySeedJobName')]"
+                        },
+                        {
+                          "name": "PROVISIONING_JOB_NAME",
+                          "value": "[parameters('provisioningJobName')]"
+                        }
+                      ],
+                      "resources": {
+                        "requests": {
+                          "cpu": 1,
+                          "memoryInGB": "[json('1.5')]"
+                        }
+                      }
+                    }
+                  }
+                ],
+                "osType": "Linux",
+                "restartPolicy": "Never"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceGroup().id, resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName')), 'Contributor'))]",
+                "[extensionResourceId(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName')), 'CognitiveServicesContributor'))]",
+                "[extensionResourceId(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('foundryAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName')), 'FoundryUser'))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deploymentScriptIdentityName'))]"
+              ]
+            },
+            {
+              "condition": "[parameters('enableFabric')]",
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2023-08-01",
+              "name": "[format('run-fabric-seed-{0}', parameters('deploymentSuffix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('resourceTags')]",
+              "kind": "AzurePowerShell",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('fabricIdentityName')))]": {}
+                }
+              },
+              "properties": {
+                "azPowerShellVersion": "11.0",
+                "retentionInterval": "P1D",
+                "timeout": "PT60M",
+                "cleanupPreference": "OnSuccess",
+                "forceUpdateTag": "[parameters('deploymentSuffix')]",
+                "scriptContent": "[variables('$fxv#0')]",
+                "environmentVariables": [
+                  {
+                    "name": "AZURE_CLIENT_ID",
+                    "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('fabricIdentityName')), '2023-01-31').clientId]"
+                  },
+                  {
+                    "name": "FABRIC_WORKSPACE_ID",
+                    "value": "[parameters('fabricWorkspaceId')]"
+                  },
+                  {
+                    "name": "FABRIC_WORKSPACE_NAME",
+                    "value": "[parameters('fabricWorkspaceName')]"
+                  },
+                  {
+                    "name": "FABRIC_LAKEHOUSE_ID",
+                    "value": "[parameters('fabricLakehouseId')]"
+                  },
+                  {
+                    "name": "FABRIC_LAKEHOUSE_NAME",
+                    "value": "[parameters('fabricLakehouseName')]"
+                  },
+                  {
+                    "name": "REPOSITORY_ARCHIVE_URL",
+                    "value": "[parameters('fabricRepositoryArchiveUrl')]"
+                  }
+                ]
+              }
+            }
+          ],
+          "outputs": {
+            "fabricSeedDeploymentScriptName": {
+              "type": "string",
+              "value": "[if(parameters('enableFabric'), format('run-fabric-seed-{0}', parameters('deploymentSuffix')), '')]"
+            },
+            "postDeployRunnerName": {
+              "type": "string",
+              "value": "[format('run-post-deploy-{0}', parameters('deploymentSuffix'))]"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "foundryAccountName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.foundryAccountName.value]"
+    },
+    "foundryProjectName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.foundryProjectName.value]"
+    },
+    "foundryProjectEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.foundryProjectEndpoint.value]"
+    },
+    "foundryProjectResourceId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.foundryProjectResourceId.value]"
+    },
+    "modelDeploymentName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.modelDeploymentName.value]"
+    },
+    "embedDeploymentName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.embedDeploymentName.value]"
+    },
+    "embedModelName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.embedModelName.value]"
+    },
+    "rerankDeploymentName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.rerankDeploymentName.value]"
+    },
+    "rerankModelName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundry'), '2025-04-01').outputs.rerankModelName.value]"
+    },
+    "searchServiceName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'data-services'), '2025-04-01').outputs.searchServiceName.value]"
+    },
+    "searchServiceEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'data-services'), '2025-04-01').outputs.searchServiceEndpoint.value]"
+    },
+    "documentIntelligenceAccountName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'data-services'), '2025-04-01').outputs.documentIntelligenceAccountName.value]"
+    },
+    "documentIntelligenceEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'data-services'), '2025-04-01').outputs.documentIntelligenceEndpoint.value]"
+    },
+    "apiUrl": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-apps'), '2025-04-01').outputs.apiUrl.value]"
+    },
+    "frontendUrl": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-apps'), '2025-04-01').outputs.frontendUrl.value]"
+    },
+    "mcpUrl": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-apps'), '2025-04-01').outputs.mcpUrl.value]"
+    },
+    "policySeedJobName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-jobs'), '2025-04-01').outputs.policySeedJobName.value]"
+    },
+    "provisioningJobName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-jobs'), '2025-04-01').outputs.provisioningJobName.value]"
+    },
+    "fabricWorkspaceName": {
+      "type": "string",
+      "value": "[if(parameters('enableFabric'), reference(resourceId('Microsoft.Resources/deployments', 'fabric-provision'), '2025-04-01').outputs.workspaceName.value, '')]"
+    },
+    "fabricLakehouseName": {
+      "type": "string",
+      "value": "[if(parameters('enableFabric'), reference(resourceId('Microsoft.Resources/deployments', 'fabric-provision'), '2025-04-01').outputs.lakehouseName.value, '')]"
+    },
+    "fabricSeedDeploymentScriptName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'post-deploy-scripts'), '2025-04-01').outputs.fabricSeedDeploymentScriptName.value]"
+    },
+    "postDeployRunnerName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'post-deploy-scripts'), '2025-04-01').outputs.postDeployRunnerName.value]"
+    }
+  },
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.44.1.10279",
+      "templateHash": "13103599738260120611"
+    }
+  }
+}

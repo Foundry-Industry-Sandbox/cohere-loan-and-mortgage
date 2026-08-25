@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/viewdefinition/0.0.1-preview/ViewDefinition.json#",
+  "contentVersion": "0.0.0.2",
+  "views": [
+    {
+      "kind": "Overview",
+      "properties": {
+        "displayName": "Overview",
+        "version": "1.0.0",
+        "header": "Cohere Loan and Mortgage",
+        "description": "Your Cohere-powered loan and mortgage workflow is deployed.<br/><br/><em>Launch the application</em><br/>In the managed application menu, open <em>Settings > Parameters and Outputs</em>, then select <strong><code>frontendUrl</code></strong>. This is the primary application URL. Service endpoints are available as <code>apiUrl</code> and <code>mcpUrl</code>.<br/><br/><em>Microsoft Foundry</em><br/>Use <code>foundryProjectEndpoint</code> to connect to the project and <code>foundryProjectResourceId</code> to open or automate against its Azure resource. The deployed resources and models are identified by <code>foundryAccountName</code>, <code>foundryProjectName</code>, <code>modelDeploymentName</code>, <code>embedDeploymentName</code>, <code>embedModelName</code>, <code>rerankDeploymentName</code>, and <code>rerankModelName</code>.<br/><br/><em>Retrieval and document processing</em><br/>Azure AI Search details are available as <code>searchServiceName</code> and <code>searchServiceEndpoint</code>. Azure Document Intelligence details are available as <code>documentIntelligenceAccountName</code> and <code>documentIntelligenceEndpoint</code>.<br/><br/><em>Provisioning jobs</em><br/>Use <code>postDeployRunnerName</code> to monitor the Entra-authenticated ACI runner. It starts and monitors <code>policySeedJobName</code> and <code>provisioningJobName</code> sequentially. <code>fabricSeedDeploymentScriptName</code> identifies the optional Fabric seed deployment script.<br/><br/><em>Optional Fabric integration</em><br/>When Fabric integration is enabled, use <code>fabricWorkspaceName</code> and <code>fabricLakehouseName</code> to identify the provisioned Fabric assets.<br/><br/><em>Deployment readiness</em><br/>ARM can complete while post-deployment initialization is still running. Confirm that the ACI runner reaches <code>Succeeded</code> before using the application; policy seeding and Foundry agent provisioning can take 15-30 minutes."
+      }
+    }
+  ]
+}

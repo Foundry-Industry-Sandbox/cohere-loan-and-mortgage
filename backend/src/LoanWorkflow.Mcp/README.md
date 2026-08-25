@@ -1,0 +1,126 @@
+# Loan Workflow MCP Server
+
+Demo-grade MCP tool provider for the four-agent loan and mortgage workflow.
+
+In the standard Azure deployment flow, this host runs as an Azure Container App. Foundry prompt agents call its public HTTPS MCP endpoints directly.
+
+## MCP Endpoints
+
+| MCP endpoint | Tools |
+| --- | --- |
+| `/document-retrieval/mcp` | `get_case_documents`, `enrich_customer_context`, `index_case_documents`, `search_case_evidence` |
+| `/underwriting-rules/mcp` | `get_application_profile`, `search_case_evidence`, `get_underwriting_context`, `get_relevant_policies` |
+| `/policy-knowledge/mcp` | `get_relevant_policies`, `get_policies_by_refs`, `validate_human_decision` |
+| `/loan-setup/mcp` | `build_account_setup_draft` |
+
+## Responsibilities
+
+- Read structured demo case data from `dataset-seed/02_identity` through `dataset-seed/07_collateral`
+- Enrich customer context from local assets or Fabric Lakehouse (configurable via `DataSource:Mode`)
+- Ensure case and customer-context evidence are indexed idempotently into the shared Azure AI Search evidence index using Microsoft Foundry `embed-v-4-0`
+- Retrieve evidence and policies from Azure AI Search using Microsoft Foundry `Cohere-rerank-v4.0-pro`
+- Seed the policy index from `dataset-seed/policies/general_policy.txt` during deploy-time seeding
+- Reindex policies only when the policy source hash changes
+- Batch embedding inputs, limit Foundry concurrency, and retry transient throttling/server errors
+
+## Azure Deployment
+
+[infra/main.bicep](../../../infra/main.bicep) deploys the MCP host as a Container App and runs a separate Container Apps Job to seed the policy index. Runtime configuration is set through environment variables:
+
+- Azure AI Search endpoint and index names
+- Foundry embed and rerank deployment endpoints
+- container-safe dataset paths (`/app/dataset-seed`)
+
+The deployed MCP endpoints are:
+
+- `{mcpUrl}/document-retrieval/mcp`
+- `{mcpUrl}/underwriting-rules/mcp`
+- `{mcpUrl}/policy-knowledge/mcp`
+- `{mcpUrl}/loan-setup/mcp`
+
+Health check: `GET /health`
+
+## Governance
+
+When `Governance:EnableMcpToolGovernance` is `true` (default), each MCP tool call is wrapped with AGT policy evaluation before the handler runs. Agent identity is inferred from the MCP route. See [docs/agent-foundry-governance.md](../../../docs/agent-foundry-governance.md).
+
+## Container Image
+
+The MCP image is built from [Dockerfile](Dockerfile). It includes:
+
+- the MCP host application
+- the seeded `dataset-seed` content required by `LocalCaseDataAdapter`
+
+## Configuration
+
+```json
+{
+  "McpStartup": {
+    "EnsureSearchIndexesOnStartup": true,
+    "SeedPoliciesOnStartup": false
+  },
+  "Dataset": {
+    "RootPath": "/app/dataset-seed",
+    "PolicyFilePath": "/app/dataset-seed/policies/general_policy.txt"
+  },
+  "AzureSearch": {
+    "Endpoint": "https://{search-service}.search.windows.net",
+    "EvidenceIndexName": "loan-case-evidence",
+    "PolicyIndexName": "loan-policy-knowledge",
+    "VectorDimensions": 1024
+  },
+  "AzureFoundryModels": {
+    "EmbedDeploymentName": "cohere-embed-v4",
+    "RerankDeploymentName": "cohere-rerank-v4-pro",
+    "EmbedModelName": "embed-v-4-0",
+    "RerankModelName": "Cohere-rerank-v4.0-pro",
+    "EmbedEndpoint": "https://{account}.services.ai.azure.com/openai/deployments/cohere-embed-v4",
+    "RerankEndpoint": "https://{account}.services.ai.azure.com",
+    "ApiKey": "",
+    "EmbeddingDimensions": 1024,
+    "EmbeddingBatchSize": 16,
+    "MaxConcurrentEmbeddingRequests": 1,
+    "MaxConcurrentRerankRequests": 2,
+    "RetryEnabled": true,
+    "MaxRetryAttempts": 4,
+    "BaseDelaySeconds": 1,
+    "MaxDelaySeconds": 30
+  }
+}
+```
+
+Leave `ApiKey` empty in Azure to use managed identity with scope `https://ai.azure.com/.default`.
+
+Endpoint notes:
+
+- `EmbedEndpoint` must point to the hub deployment path (`/openai/deployments/{name}`). The app calls `/embeddings?api-version=2024-05-01-preview` on that URL. Do not append `/v1/embed`; that path is for serverless model endpoints only.
+- `RerankEndpoint` must be the Foundry account base URL. The app calls `/providers/cohere/v2/rerank` on that base. A deployment URL such as `/openai/deployments/cohere-rerank-v4-pro` is normalized automatically, but the account base is preferred.
+- The rerank request `model` field uses `RerankDeploymentName` (for example `cohere-rerank-v4-pro`), not the catalog model name (`Cohere-rerank-v4.0-pro`).
+
+## Local Development
+
+```powershell
+cd backend/src/LoanWorkflow.Mcp
+dotnet run
+```
+
+Default URL: `http://localhost:5040`
+
+To run deploy-style policy seeding locally without starting the web host:
+
+```powershell
+cd backend/src/LoanWorkflow.Mcp
+dotnet run -- --seed-policies
+```
+
+For local runs, the default dataset paths in [appsettings.json](appsettings.json) point to the repo `dataset-seed` folder.
+
+## Demo Validation Cases
+
+- `case-01` — clearly approvable
+- `case-17` — borderline/manual review style case
+- `case-15` — clearly rejectable
+
+When the API workflow starts, normalized case documents may be pre-indexed under `sourceType=workflow-payload` and `sourceKey=case:{caseId}`. During document processing, the agent calls `index_case_documents` with the same identity so idempotency avoids duplicate embedding work, then calls `enrich_customer_context` to index supporting evidence under `sourceType=customer-context` and `sourceKey=assets:{caseId}`. The agent uses `search_case_evidence` with optional `sourceType` filters to compare submitted documents against supporting context with Cohere rerank. Policies are still indexed by deploy-time seed.
+
+When `enableFabric=true`, Bicep sets `DataSource__Mode=Fabric` on the MCP Container App and uses `FabricCaseDataStore` for case context tools. See [docs/fabric-setup.md](../../../docs/fabric-setup.md) and [docs/deployment-parameters.md](../../../docs/deployment-parameters.md).

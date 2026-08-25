@@ -1,0 +1,14 @@
+{
+  "name": "responsible-ai-agent",
+  "description": "Reviews whether human approval after underwriting is supported and flags potential bias signals.",
+  "instructionsFile": "instructions.md",
+  "outputSchemaFile": "../../shared/responsible-ai-structured-output.schema.json",
+  "allowedDecisions": [
+    "Approval Supported",
+    "Approval Supported with Caveats",
+    "Approval Not Supported",
+    "Insufficient Information"
+  ],
+  "governancePolicyFile": "governance.yaml",
+  "governanceRogueFile": "rogue.yaml"
+}
