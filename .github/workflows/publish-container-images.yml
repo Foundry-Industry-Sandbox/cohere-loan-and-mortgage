@@ -20,7 +20,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  REPOSITORY_OWNER: foundry_industry_sandbox
+  REPOSITORY_OWNER: foundry-industry-sandbox
 
 jobs:
   publish:
