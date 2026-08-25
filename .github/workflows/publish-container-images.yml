@@ -16,15 +16,14 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAMESPACE: foundryindustrysandbox
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    #runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix:
@@ -56,5 +55,5 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}:demo
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.image }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}:demo
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}:${{ github.sha }}
